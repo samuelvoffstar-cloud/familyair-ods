@@ -14,14 +14,47 @@
 <link rel="icon" type="image/png" href="icono-192.png">
 <link rel="apple-touch-icon" href="icono-180.png">
 <style>
-  html, body { margin: 0; height: 100%; background: #fff; overflow: hidden; }
-  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
-  .cargando { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 16px system-ui, sans-serif; color: #5b6b7b; }
+  :root { --azul: #0a9df5; --texto: #1f2a37; --gris: #5b6b7b; --fondo: #f4f7fb; }
+  html, body { margin: 0; height: 100%; background: var(--fondo); font-family: -apple-system, system-ui, "Segoe UI", sans-serif; color: var(--texto); }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  .portada { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px 16px; box-sizing: border-box; text-align: center; }
+  .portada img { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .portada h1 { font-size: 22px; margin: 0; }
+  .boton { display: block; width: 100%; max-width: 340px; padding: 16px; border-radius: 12px; background: var(--azul); color: #fff; font-size: 18px; font-weight: 700; text-decoration: none; }
+  .ayuda { max-width: 340px; font-size: 14px; line-height: 1.5; color: var(--gris); }
+  .oculto { display: none; }
 </style>
 </head>
 <body>
-<!-- La app vive en Google Apps Script (cuenta familyairmercadeo); esta página solo le da un link corto y el ícono. -->
-<div class="cargando">Cargando Family Air…</div>
-<iframe src="https://script.google.com/macros/s/AKfycby_cl4WrJSoH12Y8L5OirbEd0haurQ3DR8jKfKDApX9e7p5A2jGgqXDzJlgKNcd98vfKw/exec" title="Family Air · Órdenes de servicio" allow="camera; geolocation; clipboard-write" allowfullscreen></iframe>
+<!-- La app vive en Google Apps Script (cuenta familyairmercadeo); esta página le da el link corto y el ícono. -->
+<div class="portada oculto" id="portada">
+  <img src="icono-180.png" alt="Family Air">
+  <h1>Family Air · Órdenes de servicio</h1>
+  <a class="boton" id="abrir" href="https://script.google.com/macros/s/AKfycby_cl4WrJSoH12Y8L5OirbEd0haurQ3DR8jKfKDApX9e7p5A2jGgqXDzJlgKNcd98vfKw/exec">Abrir la app</a>
+  <p class="ayuda" id="ayuda"></p>
+</div>
+<script>
+  var APP = 'https://script.google.com/macros/s/AKfycby_cl4WrJSoH12Y8L5OirbEd0haurQ3DR8jKfKDApX9e7p5A2jGgqXDzJlgKNcd98vfKw/exec';
+  var ua = navigator.userAgent;
+  var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var movil = ios || /Android|Mobile/.test(ua);
+  var safari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Firefox/.test(ua);
+  var instalada = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  if (!movil && !safari) {
+    // Computador con Chrome o Edge: la app se muestra dentro de esta página (sin la franja de Apps Script).
+    var f = document.createElement('iframe');
+    f.src = APP; f.title = 'Family Air · Órdenes de servicio'; f.allow = 'camera; geolocation; clipboard-write';
+    document.body.appendChild(f);
+  } else if (instalada) {
+    // Abierta desde el ícono de la pantalla de inicio: va directo a la app.
+    location.replace(APP);
+  } else {
+    // Celular o Safari: el navegador no deja mostrar la app de Google por dentro; se abre directo.
+    document.getElementById('portada').classList.remove('oculto');
+    document.getElementById('ayuda').innerHTML = ios
+      ? 'Para dejarla en la pantalla de inicio: toque <b>Compartir</b> (el cuadro con la flecha) y luego <b>Agregar a inicio</b>.'
+      : 'Para dejarla en la pantalla de inicio: toque <b>⋮</b> y luego <b>Agregar a la pantalla principal</b> o <b>Instalar app</b>.';
+  }
+</script>
 </body>
 </html>
