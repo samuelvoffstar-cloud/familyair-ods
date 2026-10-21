@@ -1960,7 +1960,11 @@
       '<div><label>Teléfono</label><input id="cnTel" inputmode="tel"></div><div><label>Correo</label><input id="cnEmail" type="email"></div></div>' +
       '<h3>Sede</h3><div id="cnSede">' + camposSede() + '</div>' +
       '<h3>Equipos <button class="link" id="cnMasEq">+ Agregar equipo</button></h3><div id="cnEquipos"></div>' +
+      '<div class="tarjeta" id="cnSiigoBox" style="padding:10px 14px;margin-top:12px"><label class="chk"><input type="checkbox" id="cnCrearSiigo" checked> <b>Crear también en Siigo</b></label>' +
+        '<div id="cnSiigoCampos"><p class="gris" style="margin:4px 0">Para la factura electrónica Siigo pide el <b>correo</b> (arriba) y la responsabilidad fiscal. Si algo falta, el cliente queda en la app y se crea en Siigo al facturar.</p>' +
+        '<label>Responsabilidad fiscal</label><select id="cnResp">' + ((AD.cat && AD.cat.responsabilidadesSiigo) || [{ codigo: 'R-99-PN', nombre: 'No responsable' }]).map(function (x) { return '<option value="' + esc(x.codigo) + '">' + esc(x.nombre) + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="acciones der"><button id="cnGuardar">Guardar cliente</button></div><p id="cnMsg"></p>', 820);
+    $('cnCrearSiigo').onchange = function () { $('cnSiigoCampos').style.display = this.checked ? '' : 'none'; };
     m.querySelector('#cnMasEq').onclick = function () { var d = document.createElement('div'); d.className = 'tarjeta'; d.style.padding = '10px 14px'; d.innerHTML = camposEquipo(); $('cnEquipos').appendChild(d); };
     // Cliente creado en Siigo que no está en la app: se traen sus datos al formulario para revisarlos y guardar.
     var msgSiigo = function (html, tipo) { $('cnSiigoMsg').innerHTML = html ? '<span class="' + (tipo || 'gris') + '">' + html + '</span>' : ''; };
@@ -1976,12 +1980,14 @@
           return;
         }
         if (!r.conectado) return msgSiigo('Siigo no está conectado: llene los datos a mano.', 'error');
-        if (!r.encontrado) return msgSiigo('No está en Siigo. Llene los datos a mano; al facturar, la app lo crea en Siigo.');
+        if (!r.encontrado) return msgSiigo('No está en Siigo. Llene los datos: con "Crear también en Siigo" (abajo) queda creado allá al guardar.');
         poner('cnNombre', r.nombre); poner('cnDv', r.dv); poner('cnTel', r.telefono); poner('cnEmail', r.email);
         if (r.tipoDocumento) $('cnTipoDoc').value = r.tipoDocumento;
         $('cnTipoCli').value = r.tipoCliente;
         var sd = $('cnSede');
         [['direccion', r.direccion], ['ciudad', r.ciudad], ['contacto', r.contacto], ['telefono', r.telefono]].forEach(function (x) { var i = sd.querySelector('[data-sd="' + x[0] + '"]'); if (i && x[1]) i.value = x[1]; });
+        // Ya está en Siigo: no hay nada que crear allá.
+        $('cnCrearSiigo').checked = false; $('cnSiigoBox').style.display = 'none';
         msgSiigo('✓ Datos traídos de Siigo (<b>' + esc(r.nombre) + '</b>): revise la sede (barrio, contacto) y agregue los equipos.', 'exito');
       }).catch(function (e) { msgSiigo(esc(e.message), 'error'); });
     };
@@ -1993,10 +1999,19 @@
       var bt = this; bt.disabled = true;
       var d = { nombre: $('cnNombre').value.trim(), nit: $('cnNit').value.trim(), dv: $('cnDv').value.trim(), tipoDocumento: $('cnTipoDoc').value, tipoCliente: $('cnTipoCli').value,
         telefono: $('cnTel').value.trim(), email: $('cnEmail').value.trim(), sede: leerSede($('cnSede')),
-        equipos: $$('#cnEquipos > div').map(leerEquipo).filter(function (e) { return e.tipo || e.serial || e.modelo || e.serialCond || e.modeloCond; }) };
+        equipos: $$('#cnEquipos > div').map(leerEquipo).filter(function (e) { return e.tipo || e.serial || e.modelo || e.serialCond || e.modeloCond; }),
+        siigo: $('cnCrearSiigo').checked ? { crear: true, responsabilidad: $('cnResp').value } : null };
+      if (d.siigo && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) {
+        $('cnMsg').innerHTML = '<span class="error">Escriba el correo para la factura electrónica, o quite "Crear también en Siigo".</span>'; $('cnEmail').focus(); bt.disabled = false; return;
+      }
+      $('cnMsg').innerHTML = '<span class="gris">' + (d.siigo ? 'Guardando en la app y en Siigo…' : 'Guardando…') + '</span>';
       api('adminCrearCliente', d).then(function (r) {
         AD.clientes.push({ id: r.id, nombre: d.nombre, nit: d.nit, estado: 'Activo', telefono: d.telefono, ciudad: d.sede.ciudad });
-        m.remove(); aviso('Cliente ' + d.nombre + ' guardado (' + r.id + ').', 0, 'exito'); listo(r);
+        m.remove();
+        var sg = r.siigo;
+        if (sg && sg.error) aviso('Cliente ' + d.nombre + ' guardado en la app, pero no se creó en Siigo: ' + sg.error + ' Se creará al facturar.', 12000, 'error');
+        else aviso('Cliente ' + d.nombre + ' guardado (' + r.id + ')' + (sg ? (sg.creado ? ' y creado en Siigo.' : '. Ya estaba en Siigo.') : '.'), 0, 'exito');
+        listo(r);
       }).catch(function (e) { $('cnMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
   }
