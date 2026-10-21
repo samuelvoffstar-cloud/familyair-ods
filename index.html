@@ -1664,7 +1664,12 @@
       if (q.length < 3) { res.style.display = 'none'; return; }
       var hits = AD.clientes.filter(function (c) { return plano(c.nombre + ' ' + c.nit).indexOf(q) >= 0; }).slice(0, 40);
       res.style.display = '';
-      res.innerHTML = hits.length ? hits.map(function (c, i) { return '<div data-i="' + i + '"><b>' + esc(c.nombre) + '</b> <span class="gris">NIT ' + esc(c.nit) + (c.estado ? ' · ' + esc(c.estado) : '') + '</span></div>'; }).join('') : '<div class="gris">Sin resultados. Use "Cliente nuevo".</div>';
+      var soloNit = this.value.replace(/\D/g, '');
+      res.innerHTML = hits.length ? hits.map(function (c, i) { return '<div data-i="' + i + '"><b>' + esc(c.nombre) + '</b> <span class="gris">NIT ' + esc(c.nit) + (c.estado ? ' · ' + esc(c.estado) : '') + '</span></div>'; }).join('')
+        : puede('clientes') && soloNit.length >= 5 && soloNit.length === this.value.replace(/[\s.\-]/g, '').length
+          ? '<div id="oBuscarSiigo"><b>No está en la app. Buscar ' + esc(soloNit) + ' en Siigo</b> <span class="gris">(si el cliente se creó allá, se trae con sus datos)</span></div>'
+          : '<div class="gris">Sin resultados. Use "Cliente nuevo".</div>';
+      if ($('oBuscarSiigo')) $('oBuscarSiigo').onclick = function () { res.style.display = 'none'; $('oBuscar').value = ''; modalClienteNuevo(function (r) { elegirCliente(r.id, r.idSede); }, soloNit); };
       $$('[data-i]', res).forEach(function (el) {
         var c = hits[Number(el.getAttribute('data-i'))];
         el.onclick = function () { res.style.display = 'none'; $('oBuscar').value = ''; elegirCliente(c.id); };
@@ -1945,16 +1950,45 @@
   }
   function leerSede(raiz) { var s = {}; $$('[data-sd]', raiz).forEach(function (i) { s[i.getAttribute('data-sd')] = i.value.trim(); }); return s; }
 
-  function modalClienteNuevo(listo) {
+  /** nit: viene de la búsqueda de la orden; se busca de una vez en la base y en Siigo. */
+  function modalClienteNuevo(listo, nit) {
     var m = modal('Cliente nuevo',
-      '<p class="gris">Queda guardado en la base maestra (CLIENTES, SEDES y EQUIPOS).</p>' +
-      '<div class="fila"><div style="grid-column:span 2"><label>Razón social o nombre *</label><input id="cnNombre"></div><div><label>NIT o CC *</label><input id="cnNit" inputmode="numeric"></div><div><label>DV</label><input id="cnDv" inputmode="numeric" maxlength="1"></div>' +
+      '<p class="gris">Queda guardado en la base maestra (CLIENTES, SEDES y EQUIPOS). Si el cliente ya está creado en Siigo, escriba el NIT o la cédula y toque <b>Traer de Siigo</b>.</p>' +
+      '<div class="fila"><div><label>NIT o CC *</label><input id="cnNit" inputmode="numeric" value="' + esc(nit || '') + '"></div><div style="align-self:end"><button class="sec" id="cnSiigo">Traer de Siigo</button></div></div><p id="cnSiigoMsg"></p>' +
+      '<div class="fila"><div style="grid-column:span 2"><label>Razón social o nombre *</label><input id="cnNombre"></div><div><label>DV</label><input id="cnDv" inputmode="numeric" maxlength="1"></div>' +
       '<div><label>Tipo de documento</label><select id="cnTipoDoc"><option>NIT</option><option>CC</option><option>CE</option><option>PASAPORTE</option></select></div><div><label>Tipo de cliente</label><select id="cnTipoCli"><option>EMPRESA</option><option>PERSONA</option></select></div>' +
       '<div><label>Teléfono</label><input id="cnTel" inputmode="tel"></div><div><label>Correo</label><input id="cnEmail" type="email"></div></div>' +
       '<h3>Sede</h3><div id="cnSede">' + camposSede() + '</div>' +
       '<h3>Equipos <button class="link" id="cnMasEq">+ Agregar equipo</button></h3><div id="cnEquipos"></div>' +
       '<div class="acciones der"><button id="cnGuardar">Guardar cliente</button></div><p id="cnMsg"></p>', 820);
     m.querySelector('#cnMasEq').onclick = function () { var d = document.createElement('div'); d.className = 'tarjeta'; d.style.padding = '10px 14px'; d.innerHTML = camposEquipo(); $('cnEquipos').appendChild(d); };
+    // Cliente creado en Siigo que no está en la app: se traen sus datos al formulario para revisarlos y guardar.
+    var msgSiigo = function (html, tipo) { $('cnSiigoMsg').innerHTML = html ? '<span class="' + (tipo || 'gris') + '">' + html + '</span>' : ''; };
+    var poner = function (id, v) { if (v) $(id).value = v; };
+    var traerSiigo = function (auto) {
+      var n = $('cnNit').value.replace(/\D/g, '');
+      if (n.length < 5) { if (!auto) msgSiigo('Escriba el NIT o la cédula completos (sin DV).', 'error'); return; }
+      msgSiigo('Buscando ' + esc(n) + ' en la base y en Siigo…');
+      api('adminBuscarClienteSiigo', n).then(function (r) {
+        if (r.enApp) {
+          msgSiigo('Ya existe en la app: <b>' + esc(r.enApp.nombre) + '</b> (' + esc(r.enApp.id) + '). <button class="link" id="cnUsar">Usar este cliente</button>', 'error');
+          $('cnUsar').onclick = function () { m.remove(); listo({ id: r.enApp.id }); };
+          return;
+        }
+        if (!r.conectado) return msgSiigo('Siigo no está conectado: llene los datos a mano.', 'error');
+        if (!r.encontrado) return msgSiigo('No está en Siigo. Llene los datos a mano; al facturar, la app lo crea en Siigo.');
+        poner('cnNombre', r.nombre); poner('cnDv', r.dv); poner('cnTel', r.telefono); poner('cnEmail', r.email);
+        if (r.tipoDocumento) $('cnTipoDoc').value = r.tipoDocumento;
+        $('cnTipoCli').value = r.tipoCliente;
+        var sd = $('cnSede');
+        [['direccion', r.direccion], ['ciudad', r.ciudad], ['contacto', r.contacto], ['telefono', r.telefono]].forEach(function (x) { var i = sd.querySelector('[data-sd="' + x[0] + '"]'); if (i && x[1]) i.value = x[1]; });
+        msgSiigo('✓ Datos traídos de Siigo (<b>' + esc(r.nombre) + '</b>): revise la sede (barrio, contacto) y agregue los equipos.', 'exito');
+      }).catch(function (e) { msgSiigo(esc(e.message), 'error'); });
+    };
+    m.querySelector('#cnSiigo').onclick = function () { traerSiigo(false); };
+    // Al salir del NIT con el nombre vacío se busca solo.
+    $('cnNit').addEventListener('change', function () { if (!$('cnNombre').value.trim()) traerSiigo(true); });
+    if (nit) traerSiigo(true);
     m.querySelector('#cnGuardar').onclick = function () {
       var bt = this; bt.disabled = true;
       var d = { nombre: $('cnNombre').value.trim(), nit: $('cnNit').value.trim(), dv: $('cnDv').value.trim(), tipoDocumento: $('cnTipoDoc').value, tipoCliente: $('cnTipoCli').value,
