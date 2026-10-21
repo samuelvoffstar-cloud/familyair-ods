@@ -729,6 +729,9 @@
    */
   function leer(fn, args, pintar) {
     var turno = ++TURNO, copia = copiaVista(fn, args), antes = copia == null ? null : JSON.stringify(copia);
+    // Recién traída del servidor (al guardar o en una precarga de hace segundos): no se vuelve a pedir.
+    var v = VISTAS[claveVista(fn, args)];
+    if (copia != null && v && Date.now() - v.t < 5000) { pintar(copia, false); return Promise.resolve(copia); }
     if (copia != null) pintar(copia, true);
     return llamar(fn, args, false).then(function (r) {
       guardarVista(fn, args, r);
@@ -952,22 +955,31 @@
    * (aviso en pantalla que abre la orden, número en "Revisión" y aviso del navegador si está permitido).
    */
   function vigilarRevision() {
-    var clave = 'fa_revision_vistas_' + SES.usuario, vistas = leerLocal(clave) || [];
+    var clave = 'fa_revision_vistas_' + SES.usuario, vistas = leerLocal(clave) || [], version = null;
+    // Solo pide la lista cuando hubo cambios (adminVersion es una consulta liviana) y con la pestaña a la vista.
     var revisar = function () {
-      api('adminPorRevisar').then(function (l) {
-        var el = document.querySelector('[data-cuenta="revision"]'); if (el) { el.style.display = l.length ? '' : 'none'; el.textContent = l.length; }
-        var nuevas = l.filter(function (o) { return vistas.indexOf(o.id) < 0; });
-        vistas = l.map(function (o) { return o.id; }); guardarLocal(clave, vistas);
-        if (!nuevas.length) return;
-        var o = nuevas[0], destino = nuevas.length === 1 ? 'orden/' + o.id : 'revision';
-        var texto = nuevas.length === 1 ? o.id + ' · ' + o.cliente + ': ' + (o.tecnico || 'el técnico') + ' cerró el servicio. Lista para revisar y enviar al cliente.' : nuevas.length + ' servicios nuevos cerrados por los técnicos, listos para revisar.';
-        aviso(texto + ' Toque para abrir.', 15000, 'exito', function () { ir(destino); });
-        vibrar([20, 40, 20]);
-        try { if (window.Notification && Notification.permission === 'granted') { var n = new Notification('Family Air · Por revisar', { body: texto }); n.onclick = function () { window.focus(); ir(destino); }; } } catch (e) {}
-      }).catch(function () {});
+      if (document.hidden || !navigator.onLine) return;
+      api('adminVersion').then(function (v) {
+        if (v === version) return;
+        version = v;
+        return api('adminPorRevisar').then(pintar);
+      }).catch(function () { version = null; });
+    };
+    var pintar = function (l) {
+      var el = document.querySelector('[data-cuenta="revision"]'); if (el) { el.style.display = l.length ? '' : 'none'; el.textContent = l.length; }
+      var nuevas = l.filter(function (o) { return vistas.indexOf(o.id) < 0; });
+      vistas = l.map(function (o) { return o.id; }); guardarLocal(clave, vistas);
+      if (!nuevas.length) return;
+      var o = nuevas[0], destino = nuevas.length === 1 ? 'orden/' + o.id : 'revision';
+      var texto = nuevas.length === 1 ? o.id + ' · ' + o.cliente + ': ' + (o.tecnico || 'el técnico') + ' cerró el servicio. Lista para revisar y enviar al cliente.' : nuevas.length + ' servicios nuevos cerrados por los técnicos, listos para revisar.';
+      aviso(texto + ' Toque para abrir.', 15000, 'exito', function () { ir(destino); });
+      vibrar([20, 40, 20]);
+      try { if (window.Notification && Notification.permission === 'granted') { var n = new Notification('Family Air · Por revisar', { body: texto }); n.onclick = function () { window.focus(); ir(destino); }; } } catch (e) {}
     };
     revisar();
     clearInterval(AD.relojRevision); AD.relojRevision = setInterval(revisar, 60000);
+    document.removeEventListener('visibilitychange', AD.revisarAlVolver); AD.revisarAlVolver = revisar;
+    document.addEventListener('visibilitychange', revisar);
     try {
       if (window.Notification && Notification.permission === 'default') document.addEventListener('click', function pedir() { document.removeEventListener('click', pedir); try { Notification.requestPermission(); } catch (e) {} });
     } catch (e) {}
@@ -1360,7 +1372,7 @@
     accion('aConfirmar', function () {
       confirmar(/^PC-/.test(d.id) ? 'El servicio queda confirmado y recibe su número de orden.' : 'El servicio queda confirmado.', 'Confirmar').then(function (si) {
         if (!si) return;
-        api('adminConfirmar', d.id).then(function (nd) { aviso('Servicio confirmado: ' + nd.id + '.', 0, 'exito'); ir('orden/' + nd.id); }).catch(function (e) { aviso(e.message, 0, 'error'); });
+        api('adminConfirmar', d.id).then(function (nd) { guardarVista('adminDetalle', [nd.id], nd); aviso('Servicio confirmado: ' + nd.id + '.', 0, 'exito'); ir('orden/' + nd.id); }).catch(function (e) { aviso(e.message, 0, 'error'); });
       });
     });
     accion('aSoporte', function () { modalSoporte(d, function (nd) { pintarDetalle(cont, nd); }); });
@@ -1613,13 +1625,24 @@
       var hits = AD.clientes.filter(function (c) { return plano(c.nombre + ' ' + c.nit).indexOf(q) >= 0; }).slice(0, 40);
       res.style.display = '';
       res.innerHTML = hits.length ? hits.map(function (c, i) { return '<div data-i="' + i + '"><b>' + esc(c.nombre) + '</b> <span class="gris">NIT ' + esc(c.nit) + (c.estado ? ' · ' + esc(c.estado) : '') + '</span></div>'; }).join('') : '<div class="gris">Sin resultados. Use "Cliente nuevo".</div>';
-      $$('[data-i]', res).forEach(function (el) { el.onclick = function () { res.style.display = 'none'; $('oBuscar').value = ''; elegirCliente(hits[Number(el.getAttribute('data-i'))].id); }; });
+      $$('[data-i]', res).forEach(function (el) {
+        var c = hits[Number(el.getAttribute('data-i'))];
+        el.onclick = function () { res.style.display = 'none'; $('oBuscar').value = ''; elegirCliente(c.id); };
+        el.onpointerenter = el.ontouchstart = function () { precargar('adminCliente', [c.id]); };
+      });
+      // Con uno o dos resultados, las sedes de esos clientes ya se van trayendo.
+      if (hits.length && hits.length <= 2) hits.forEach(function (c) { precargar('adminCliente', [c.id]); });
     };
     // primeraCarga: al abrir una orden en edición o un borrador no se pisan los datos que ya traía.
     var primeraCarga = true;
     function elegirCliente(idCliente, idSede, equiposSel, extras) {
-      $('oCliente').innerHTML = '<span class="gris">Cargando sedes…</span>';
-      api('adminCliente', idCliente).then(function (c) {
+      // Si este cliente ya se había abierto, sus sedes y equipos aparecen de una vez y se actualizan detrás.
+      var copia = copiaVista('adminCliente', [idCliente]), mostrada = false;
+      if (!copia) $('oCliente').innerHTML = '<span class="gris">Cargando sedes…</span>';
+      var pintarCliente = function (c) {
+        var actual = mostrada ? { sede: F.sede && F.sede.id, eq: equiposMarcados(), x: F.extras.slice() } : null;
+        mostrada = true;
+        if (actual) { idSede = actual.sede; equiposSel = actual.eq; extras = actual.x; }
         var otroCliente = !F.cliente || F.cliente.id !== c.id;
         F.cliente = c; F.sedes = c.sedes;
         if (!editar && otroCliente && !(primeraCarga && borrador)) {
@@ -1635,8 +1658,16 @@
         $('oSede').value = String(Math.max(0, i));
         if (extras !== undefined) F.extras = extras.slice();
         pintarSede(equiposSel);
-      }).catch(function (e) { $('oCliente').innerHTML = '<p class="error">' + esc(e.message) + '</p>'; });
+      };
+      var turno = ++turnoCliente;
+      if (copia) pintarCliente(copia);
+      llamar('adminCliente', [idCliente], !copia).then(function (c) {
+        guardarVista('adminCliente', [idCliente], c);
+        if (turno !== turnoCliente) return; // mientras tanto se escogió otro cliente
+        if (!mostrada || JSON.stringify(c) !== JSON.stringify(copia)) pintarCliente(c);
+      }).catch(function (e) { if (!mostrada && turno === turnoCliente) $('oCliente').innerHTML = '<p class="error">' + esc(e.message) + '</p>'; });
     }
+    var turnoCliente = 0;
     var fichasPrevias = (pre.fichas || []).slice();
     function pintarFichas() {
       var cont2 = $('oFichas'); if (!cont2) return;
@@ -1807,7 +1838,7 @@
         Object.keys(datos).forEach(function (k) { if (JSON.stringify(datos[k]) !== JSON.stringify(orig[k])) cambios[k] = datos[k]; });
         if (cambios.idCliente || cambios.idSede) { cambios.idCliente = datos.idCliente; cambios.idSede = datos.idSede; }
         if (!Object.keys(cambios).length) { ir('orden/' + id); return; }
-        p = api('adminEditar', id, cambios).then(function (nd) { despuesDeGuardar(nd.id, nd.id !== id ? 'Servicio confirmado: ' + nd.id + '.' : 'Cambios guardados en ' + id + '.', datos); });
+        p = api('adminEditar', id, cambios).then(function (nd) { guardarVista('adminDetalle', [nd.id], nd); despuesDeGuardar(nd.id, nd.id !== id ? 'Servicio confirmado: ' + nd.id + '.' : 'Cambios guardados en ' + id + '.', datos); });
       } else {
         datos.tipoOrden = valorOpcion('oTipoOrden');
         p = api('adminCrearODS', datos).then(function (nuevo) { despuesDeGuardar(nuevo, /^PC-/.test(nuevo) ? 'Orden ' + nuevo + ' por confirmar. El número ODS se asigna al confirmar.' : 'Orden ' + nuevo + ' creada.', datos); });
@@ -2816,10 +2847,14 @@
 
   /** Guarda en el celular el detalle de cada orden abierta, para poder trabajarla sin señal. */
   function precargarOrdenes(r) {
-    var ids = r.hoy.concat(r.proximos).map(function (o) { return o.id; }).slice(0, 25);
+    var ordenes = r.hoy.concat(r.proximos).slice(0, 25);
+    // Solo las que cambiaron desde la copia del celular: volver a la lista no descarga otra vez todo.
     var una = function () {
-      var id = ids.shift(); if (!id || !navigator.onLine) return;
-      apiTec('tecDetalle', id).then(function (d) { return BD.guardar(claveCopia('det', id), d); }).then(una, una);
+      var o = ordenes.shift(); if (!o || !navigator.onLine) return;
+      BD.leer(claveCopia('det', o.id)).then(function (c) {
+        if (c && o.act && c.version === o.act) return;
+        return apiTec('tecDetalle', o.id).then(function (d) { return BD.guardar(claveCopia('det', o.id), d); });
+      }).then(una, una);
     };
     una();
   }
@@ -2965,11 +3000,12 @@
     if ($('oPausar')) $('oPausar').onclick = function () { modalPausa(d); };
     activarOpciones($('oArt')); activarOpciones($('oEnvio'));
     $$('input[name="tEnvio"]').forEach(function (r) { r.addEventListener('change', function () { $('oDestino').value = d.envioSugerido[r.value] || ''; $('oDestino').inputMode = r.value === 'CORREO' ? 'email' : 'tel'; guardarBorrador(); }); });
-    ['oTrabajo', 'oObs', 'oRecibe', 'oDoc', 'oDestino'].forEach(function (id) { $(id).addEventListener('input', guardarBorrador); });
+    // Al escribir, el borrador se guarda medio segundo después de la última tecla (no en cada letra).
+    ['oTrabajo', 'oObs', 'oRecibe', 'oDoc', 'oDestino'].forEach(function (id) { $(id).addEventListener('input', guardarBorradorPronto); $(id).addEventListener('change', guardarBorrador); });
     $('oArt').addEventListener('change', guardarBorrador);
     if ($('oFichas')) {
       activarOpciones($('oFichas'));
-      $('oFichas').addEventListener('input', guardarBorrador); $('oFichas').addEventListener('change', guardarBorrador);
+      $('oFichas').addEventListener('input', guardarBorradorPronto); $('oFichas').addEventListener('change', guardarBorrador);
       $$('[data-esc]', $('oFichas')).forEach(function (b) {
         b.onclick = function () { var p = b.getAttribute('data-esc').split('|'); T.fichaDestino = { parte: p[0], i: p[1] }; $('iPlaca').click(); };
       });
@@ -3025,20 +3061,24 @@
 
   // ---------- Escáner de placa: foto del sticker → OCR → el técnico confirma serial y modelo ----------
   function leerPlaca(equipo, file, parte) {
-    var m = modal('Leyendo placa…', cargando('Subiendo la foto y leyendo el texto. Puede tardar unos segundos.'));
-    reducirImagen(file, 1800, 0.85).then(function (dataUrl) {
+    var m = modal('Leyendo placa…', cargando('Leyendo el texto de la placa…'));
+    // En gris y a 1.600 px: pesa menos, sube más rápido y el OCR la lee igual o mejor.
+    reducirImagen(file, 1600, 0.8, true).then(function (dataUrl) {
       var id = T.actual.id, clave = 'placa-' + Date.now();
       // Sin señal no se puede leer el texto: la foto queda guardada y se sube después; modelo y serial se escriben a mano.
       var sinSenal = function () {
         m.remove();
         encolar('tecSubirFoto', id, [id, 'PLACA', dataUrl, clave], { tipo: 'PLACA', clave: clave });
-        var r = { aviso: 'Sin señal: la placa no se puede leer ahora. Escriba modelo y serial; la foto queda guardada y se sube sola.' };
+        var r = { fotoClave: clave, aviso: 'Sin señal: la placa no se puede leer ahora. Escriba modelo y serial; la foto queda guardada y se sube sola.' };
         if (T.fichaDestino) { aviso(r.aviso, 8000, 'error'); T.fichaDestino = null; return; }
         modalPlaca(equipo, r, dataUrl, parte);
       };
       if (!navigator.onLine) return sinSenal();
-      return apiTec('tecLeerPlaca', id, dataUrl, clave).then(function (r) {
+      return apiTec('tecLeerPlaca', id, dataUrl, clave, true).then(function (r) {
         m.remove();
+        // La foto de la placa se sube aparte por la cola (sin señal también): la lectura no la espera.
+        encolar('tecSubirFoto', id, [id, 'PLACA', dataUrl, clave], { tipo: 'PLACA', clave: clave });
+        r.fotoClave = clave;
         if (T.fichaDestino) { llenarFicha(T.fichaDestino, r); T.fichaDestino = null; return; }
         modalPlaca(equipo, r, dataUrl, parte);
       }, function (e) { if (esRed(e)) return sinSenal(); throw e; });
@@ -3050,7 +3090,7 @@
     var el = document.querySelector('[data-ficha="' + dest.i + '"]'); if (!el) return;
     var poner = function (campo, v, siVacio) { var x = el.querySelector('[data-fc="' + campo + '"]'); if (x && v && (!siVacio || !x.value)) { x.value = v; x.dispatchEvent(new Event('input', { bubbles: true })); } };
     var suf = dest.parte === 'cond' ? 'Cond' : 'Evap';
-    poner('modelo' + suf, r.modelo); poner('serial' + suf, r.serial); poner('marca', r.marca, true); poner('capacidad', r.capacidad, true);
+    poner('modelo' + suf, r.modelo); poner('serial' + suf, r.serial); poner('marca', r.marca, true); poner('tipo', r.tipo, true); poner('capacidad', r.capacidad, true);
     poner('refrigerante', r.refrigerante, true); poner('voltaje', r.voltaje, true);
     aviso(r.aviso || ('Placa leída: revise modelo y serial de la ' + (dest.parte === 'cond' ? 'condensadora' : 'evaporadora') + '.'), 0, r.aviso ? 'error' : 'exito');
   }
@@ -3059,11 +3099,12 @@
   function compararPlaca(equipo, r, parte) {
     var limpio = function (v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
     var suf = parte === 'cond' ? 'Cond' : '';
-    return [['modelo', 'Modelo'], ['serial', 'Serial'], ['marca', 'Marca'], ['capacidad', 'Capacidad']].filter(function (c) { return r[c[0]]; }).map(function (c) {
+    // El tipo leído solo llena el vacío: la placa a veces dice "SPLIT" en un equipo registrado como piso techo.
+    return [['modelo', 'Modelo'], ['serial', 'Serial'], ['tipo', 'Tipo'], ['marca', 'Marca'], ['capacidad', 'Capacidad']].filter(function (c) { return r[c[0]] && !(c[0] === 'tipo' && equipo.tipo); }).map(function (c) {
       var clave = c[0] === 'modelo' || c[0] === 'serial' ? c[0] + suf : c[0];
       var reg = equipo[clave] || '', leido = r[c[0]];
       var estado = !reg ? 'nuevo' : limpio(reg) === limpio(leido) || (c[0] === 'capacidad' && limpio(reg).replace(/BTU/, '') === limpio(leido).replace(/BTU/, '')) ? 'ok' : 'distinto';
-      return { campo: c[1], reg: reg, leido: leido, estado: estado };
+      return { clave: c[0], campo: c[1], reg: reg, leido: leido, estado: estado };
     });
   }
 
@@ -3078,7 +3119,9 @@
     var cmp = equipo && foto && !r.aviso ? compararPlaca(equipo, r, parte) : [];
     var distintos = cmp.filter(function (c) { return c.estado === 'distinto'; }).length;
     var leidoEn = function (k) { return foto && !r.aviso && ((parte === 'cond') === /Cond$/.test(k)) ? r[k.replace('Cond', '')] : ''; };
-    var val = function (k) { return leidoEn(k) || (equipo && equipo[k]) || nuevo[k] || (k === 'marca' || k === 'capacidad' ? r[k] : '') || ''; };
+    // Marca y capacidad leídas en la placa corrigen lo registrado; el tipo leído solo llena el vacío.
+    var leidoFicha = function (k) { var c = cmp.filter(function (x) { return x.clave === k; })[0]; return c && c.estado === 'distinto' && k !== 'tipo' ? c.leido : ''; };
+    var val = function (k) { return leidoEn(k) || leidoFicha(k) || (equipo && equipo[k]) || nuevo[k] || (k === 'marca' || k === 'capacidad' || k === 'tipo' ? r[k] : '') || ''; };
     var nombreParte = parte === 'cond' ? 'condensadora' : 'evaporadora';
     var m = modal(equipo ? 'Placa de la ' + nombreParte : 'Equipo no registrado',
       (foto ? '<img src="' + foto + '" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;background:#000">' : '') +
@@ -3090,8 +3133,8 @@
         }).join('') + '</tbody></table></div>' : (foto && !r.aviso ? '<p class="gris">Revise lo que leyó el sistema y corrija si hace falta.</p>' : '')) +
       (!equipo ? '<p class="gris">Se agrega a la base en esta sede y a esta orden, con sus dos unidades.</p>' +
         '<div class="fila"><button class="sec" id="plCamEvap">' + ICON.camara + ' Placa evaporadora</button><button class="sec" id="plCamCond">' + ICON.camara + ' Placa condensadora</button></div>' +
-        (T.actual.sedesExtra && T.actual.sedesExtra.length ? '<label>Sede donde está el equipo</label><select id="plSede">' + [{ id: T.actual.idSede, nombre: T.actual.sede }].concat(T.actual.sedesExtra).map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === nuevo.idSede ? ' selected' : '') + '>' + esc(s.nombre) + '</option>'; }).join('') + '</select>' : '') +
-        '<label>Tipo de equipo</label><input id="plTipo" placeholder="Mini split, cassette, piso techo…" value="' + esc(nuevo.tipo || '') + '">' : '') +
+        (T.actual.sedesExtra && T.actual.sedesExtra.length ? '<label>Sede donde está el equipo</label><select id="plSede">' + [{ id: T.actual.idSede, nombre: T.actual.sede }].concat(T.actual.sedesExtra).map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === nuevo.idSede ? ' selected' : '') + '>' + esc(s.nombre) + '</option>'; }).join('') + '</select>' : '') : '') +
+      '<label>Tipo de equipo</label><input id="plTipo" placeholder="Mini split, cassette, piso techo…" value="' + esc(val('tipo')) + '">' +
       '<div class="unidades"><div' + (parte === 'evap' && foto ? ' class="leida"' : '') + '><h4>Evaporadora (interior)</h4><label>Modelo</label><input id="plModelo" value="' + esc(val('modelo')) + '">' +
       '<label>Serial</label><input id="plSerial" value="' + esc(val('serial')) + '"></div>' +
       '<div' + (parte === 'cond' && foto ? ' class="leida"' : '') + '><h4>Condensadora (exterior)</h4><label>Modelo</label><input id="plModeloCond" value="' + esc(val('modeloCond')) + '">' +
@@ -3103,22 +3146,22 @@
     T.nuevoEq = null;
     var leerCampos = function () {
       return { modelo: $('plModelo').value, serial: $('plSerial').value, modeloCond: $('plModeloCond').value, serialCond: $('plSerialCond').value,
-        marca: $('plMarca').value, capacidad: $('plCap').value };
+        marca: $('plMarca').value, capacidad: $('plCap').value, tipo: $('plTipo').value };
     };
     var camara = function (p) {
       // Guarda lo escrito, abre la cámara y vuelve a este formulario con lo leído en la unidad escogida.
-      T.nuevoEq = Object.assign(leerCampos(), { tipo: $('plTipo').value, ubicacion: $('plUbic').value, idSede: $('plSede') ? $('plSede').value : '' });
+      T.nuevoEq = Object.assign(leerCampos(), { ubicacion: $('plUbic').value, idSede: $('plSede') ? $('plSede').value : '' });
       T.placaEquipo = null; T.placaParte = p; T.fichaDestino = null; m.remove(); $('iPlaca').click();
     };
     if (m.querySelector('#plCamEvap')) { m.querySelector('#plCamEvap').onclick = function () { camara('evap'); }; m.querySelector('#plCamCond').onclick = function () { camara('cond'); }; }
     m.querySelector('#plGuardar').onclick = function () {
       var bt = this; bt.disabled = true;
-      var datos = Object.assign(leerCampos(), { fotoId: r.fotoId || '' });
+      var datos = Object.assign(leerCampos(), { fotoId: r.fotoId || '', fotoClave: r.fotoClave || '' });
       if (equipo && foto) datos.parte = parte;
-      if (!equipo) { datos.tipo = $('plTipo').value; datos.ubicacion = $('plUbic').value; if ($('plSede')) datos.idSede = $('plSede').value; }
+      if (!equipo) { datos.ubicacion = $('plUbic').value; if ($('plSede')) datos.idSede = $('plSede').value; }
       var d = T.actual, lista = (d.equiposDetalle || []).slice();
       var marca = function (x) {
-        return Object.assign({}, x, { modelo: datos.modelo, serial: datos.serial, modeloCond: datos.modeloCond, serialCond: datos.serialCond, marca: datos.marca || x.marca,
+        return Object.assign({}, x, { modelo: datos.modelo, serial: datos.serial, modeloCond: datos.modeloCond, serialCond: datos.serialCond, marca: datos.marca || x.marca, tipo: datos.tipo || x.tipo, capacidad: datos.capacidad || x.capacidad,
           escaneado: x.escaneado || (parte === 'evap' && !!foto), escaneadoCond: x.escaneadoCond || (parte === 'cond' && !!foto) });
       };
       // Se ve al instante en el celular; la base se corrige cuando llega el envío.
@@ -3131,7 +3174,13 @@
     };
   }
 
+  var esperaBorrador = null;
+  function guardarBorradorPronto() { clearTimeout(esperaBorrador); esperaBorrador = setTimeout(guardarBorrador, 500); }
+  // Si la app se cierra o pasa a segundo plano, lo escrito se guarda de una vez.
+  document.addEventListener('visibilitychange', function () { if (document.hidden && esperaBorrador && T.actual && $('oTrabajo')) { clearTimeout(esperaBorrador); esperaBorrador = null; guardarBorrador(); } });
   function guardarBorrador() {
+    esperaBorrador = null;
+    if (!T.actual || !$('oTrabajo')) return;
     guardarLocal('fa_borrador_' + T.actual.id, {
       trabajo: $('oTrabajo').value, obs: $('oObs').value, recibeNombre: $('oRecibe').value, recibeDoc: $('oDoc').value, estadoArtefacto: valoresOpcion('tArt'),
       envioCanal: valorOpcion('tEnvio'), envioDestino: $('oDestino').value, fichas: $('oFichas') ? leerFichas($('oFichas'), T.actual.fichaTareas) : []
@@ -3156,12 +3205,13 @@
     clearInterval(T.relojSync);
     if (['PROGRAMADA', 'EN_CURSO', 'EN_PAUSA'].indexOf(d.estado) < 0) return;
     T.vistas = d.fotos.map(function (f) { return f.id; });
-    var equipos = JSON.stringify(d.equiposDetalle || []);
+    var equipos = JSON.stringify(d.equiposDetalle || []), version = '';
     T.relojSync = setInterval(function () {
       if (!T.actual || T.actual.id !== d.id || !$('tEquipos')) { clearInterval(T.relojSync); return; }
       if (!navigator.onLine) return;
-      apiTec('tecEstado', d.id).then(function (r) {
+      apiTec('tecEstado', d.id, version).then(function (r) {
         if (!T.actual || T.actual.id !== d.id) return;
+        version = r.version || '';
         if (!cambioPendiente(d.id) && r.estado !== d.estado) {
           clearInterval(T.relojSync);
           if (r.estado === 'CERRADA_TECNICO') { borrarLocal('fa_borrador_' + d.id); aviso((r.porQuien || 'Otro técnico') + ' cerró este servicio.', 6000, 'exito'); }
@@ -3170,6 +3220,7 @@
           abrirOrden(d.id);
           return;
         }
+        if (r.igual) return; // sin cambios desde la última consulta
         var propias = misEnvios().map(function (x) { return x.clave; }).concat(d.fotos.map(function (f) { return f.clave; }));
         r.fotos.forEach(function (f) {
           if (T.vistas.indexOf(f.id) >= 0) return;
@@ -3185,23 +3236,26 @@
   }
 
   // ---------- Fotos: se reducen y se suben una por una, con reintento ----------
-  function reducirImagen(file, max, calidad) {
+  /**
+   * Reduce la foto en el celular antes de guardarla o subirla. Lee el archivo directo (sin pasarlo a texto base64),
+   * lo que en fotos de 5 a 12 MB ahorra segundos. gris: para placas (pesa menos y el OCR lee mejor el contraste).
+   */
+  function reducirImagen(file, max, calidad, gris) {
     max = max || 1280; calidad = calidad || 0.72;
     return new Promise(function (ok, fallo) {
-      var lector = new FileReader();
-      lector.onerror = fallo;
-      lector.onload = function () {
-        var img = new Image();
-        img.onerror = fallo;
-        img.onload = function () {
-          var w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
-          var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
-          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          ok(c.toDataURL('image/jpeg', calidad));
-        };
-        img.src = lector.result;
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onerror = function (e) { URL.revokeObjectURL(url); fallo(e); };
+      img.onload = function () {
+        var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        var ctx = c.getContext('2d');
+        if (gris) ctx.filter = 'grayscale(1) contrast(1.15)';
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        ok(c.toDataURL('image/jpeg', calidad));
       };
-      lector.readAsDataURL(file);
+      img.src = url;
     });
   }
 
