@@ -1293,7 +1293,7 @@
         dato('Valor recibido', d.valorRecibido != null ? pesos(d.valorRecibido) : '') + dato('Fecha de pago', esc(d.fechaPago)) + dato('Referencia', esc(d.referenciaPago)) +
         dato('Cobro', esc([d.cobradoPor, d.fechaCobro].filter(Boolean).join(' · '))) +
         dato('Factura Siigo', d.factura && !/^ENVIANDO/.test(d.factura) ? '<b>' + esc(d.factura) + '</b>' : '') +
-        dato('Error de Siigo', d.siigoError ? '<span class="error">' + esc(d.siigoError) + '</span>' : '') +
+        dato(/anulada|eliminada/.test(d.siigoError || '') ? 'Aviso de Siigo' : 'Error de Siigo', d.siigoError ? '<span class="error">' + esc(d.siigoError) + '</span>' : '') +
         dato('Completada', esc(d.completada)) + '</dl></div>' : '') +
       (d.motivoRetorno || d.motivoAnulacion ? '<div class="tarjeta"><dl class="datos">' + dato('Retornos', d.retornos ? String(d.retornos) : '') + dato('Motivo del último retorno', esc(d.motivoRetorno)) + dato('Motivo de anulación', esc(d.motivoAnulacion)) + '</dl></div>' : '') +
       '<div class="rejilla"><div id="dHist"></div><div id="dCambios"></div></div>';
@@ -2138,7 +2138,7 @@
           '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago.', FACTURA: 'Abra la orden y use "Pasar a facturar".', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
         $$('.pestanas button', cont).forEach(function (b) { b.onclick = function () { tab = AD.tabCobro = b.getAttribute('data-t'); pintar(); }; });
         var cols = [COL.numero, COL.cliente, COL.tipo, COL.cierre];
-        if (tab === 'POR_FACTURAR') cols.push({ t: 'Siigo', k: 'factura', fmt: function (o) { return o.siigoError ? '<span class="error">Error</span>' : o.factura && !/^ENVIANDO/.test(o.factura) ? esc(o.factura) : '<span class="gris">Sin enviar</span>'; } });
+        if (tab === 'POR_FACTURAR') cols.push({ t: 'Siigo', k: 'factura', fmt: function (o) { return o.siigoError ? '<span class="error">' + (/anulada|eliminada/.test(o.siigoError) ? 'Anulada en Siigo' : 'Error') + '</span>' : o.factura && !/^ENVIANDO/.test(o.factura) ? esc(o.factura) : '<span class="gris">Sin enviar</span>'; } });
         if (tab === 'COMPLETADAS') cols.push(COL.pago, { t: 'Recibido', k: 'valorRecibido', der: true, total: true, fmt: function (o) { return o.valorRecibido == null ? '' : pesos(o.valorRecibido); } });
         cols.push(COL.total);
         tablaSiigo($('t'), { filas: grupos[tab], descargar: 'cobro-' + tab.toLowerCase() + '.csv', vacio: 'No hay órdenes en este grupo.', alClic: function (o) { ir('orden/' + o.id); }, columnas: cols });
