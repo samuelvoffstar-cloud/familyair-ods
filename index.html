@@ -685,7 +685,8 @@
     var lineas = [columnas.map(function (c) { return c.t; })].concat(filas.map(function (f) {
       return columnas.map(function (c) { var v = c.csv ? c.csv(f) : f[c.k]; return v == null ? '' : v; });
     }));
-    var csv = '﻿' + lineas.map(function (l) { return l.map(function (v) { v = String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';'); }).join('\n');
+    // Un texto que empieza por =, +, @ o - (sin ser número) se abriría en Excel como fórmula: se le antepone un apóstrofo.
+    var csv = '﻿' + lineas.map(function (l) { return l.map(function (v) { v = String(v); if (/^[=+@\t\r]|^-(?![\d.,]+$)/.test(v)) v = "'" + v; return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';'); }).join('\n');
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
@@ -770,7 +771,7 @@
     $('lError').textContent = '';
     var mal = false;
     if (!$('lUsuario').value.trim()) { marcarError($('lUsuario'), 'Escriba su usuario.'); mal = true; }
-    if (!/^\d{4,8}$/.test($('lPin').value.trim())) { marcarError($('lPin'), 'El PIN tiene de 4 a 8 números.'); mal = true; }
+    if (!/^\d{6,8}$/.test($('lPin').value.trim())) { marcarError($('lPin'), 'El PIN tiene de 6 a 8 números.'); mal = true; }
     if (mal) return;
     $('btnIngresar').disabled = true;
     apiSinToken('login', $('lUsuario').value, $('lPin').value).then(function (s) {
@@ -786,8 +787,18 @@
     location.reload();
   }
 
+  function rolesSes() { return SES ? (SES.roles && SES.roles.length ? SES.roles : [SES.rol]) : []; }
+  function tieneRol(r) { return rolesSes().indexOf(r) >= 0; }
+  /** Técnico que además tiene un rol de oficina (ej. Lucas: liquidación y técnico): puede pasar de un panel al otro. */
+  function dosPaneles() { return tieneRol('TECNICO') && rolesSes().some(function (r) { return r !== 'TECNICO'; }); }
+  function nombreRoles() { return rolesSes().map(function (r) { return NOMBRES_ROL[r] || r; }).join(' y '); }
+  function cambiarPanel(p) { guardarLocal('fa_panel_' + SES.usuario, p); location.hash = ''; location.reload(); }
+
   function arrancar() {
-    if (SES.rol === 'TECNICO') panelTecnico(); else panelAdmin();
+    if (!dosPaneles()) { if (tieneRol('TECNICO')) panelTecnico(); else panelAdmin(); return; }
+    // Con los dos roles: el panel que usó la última vez; la primera vez, técnico en el celular y oficina en el computador.
+    var p = leerLocal('fa_panel_' + SES.usuario) || (window.matchMedia('(max-width: 760px)').matches ? 'tecnico' : 'oficina');
+    if (p === 'tecnico') panelTecnico(); else panelAdmin();
   }
 
   window.addEventListener('scroll', function () { var b = document.querySelector('.barra'); if (b) b.classList.toggle('con-borde', window.scrollY > 4); }, { passive: true });
@@ -829,7 +840,7 @@
     $('raiz').innerHTML =
       '<div class="shell"><aside class="menu" id="menu">' +
       '<div class="marca"><img src="' + LOGO + '" alt=""><b>Family Air<small>Órdenes de servicio</small></b></div><nav id="nav"></nav>' +
-      '<div class="pie">' + esc(SES.nombre) + '<br>' + esc(NOMBRES_ROL[SES.rol] || SES.rol) + '</div></aside>' +
+      '<div class="pie">' + esc(SES.nombre) + '<br>' + esc(nombreRoles()) + '</div></aside>' +
       '<div class="principal"><header class="barra">' +
       '<button class="icono btn-menu" id="btnMenu" title="Menú">' + ICON.menu + '</button>' +
       '<div class="empresa">FAMILY AIR · GARCÍA PATIÑO ADRIANA LUCÍA</div>' +
@@ -842,8 +853,10 @@
     if ($('btnCrear')) $('btnCrear').onclick = function () { formOrden(null, {}); };
     $('busGlobal').onkeydown = function (e) { if (e.key === 'Enter') { AD.filtros = { texto: this.value.trim() }; ir('ordenes'); } };
     $('btnAvatar').onclick = function () {
-      var m = modal('Mi sesión', '<p><b>' + esc(SES.nombre) + '</b><br><span class="gris">' + esc(SES.usuario) + ' · ' + esc(NOMBRES_ROL[SES.rol] || SES.rol) + '</span></p><div class="acciones"><button class="peligro" id="mSalir">Cerrar sesión</button></div>', 420);
+      var m = modal('Mi sesión', '<p><b>' + esc(SES.nombre) + '</b><br><span class="gris">' + esc(SES.usuario) + ' · ' + esc(nombreRoles()) + '</span></p><div class="acciones">' +
+        (dosPaneles() ? '<button class="sec" id="mTecnico">Ir a mis servicios de técnico</button>' : '') + '<button class="peligro" id="mSalir">Cerrar sesión</button></div>', 420);
       m.querySelector('#mSalir').onclick = function () { cerrarSesion(false); };
+      if (dosPaneles()) m.querySelector('#mTecnico').onclick = function () { cambiarPanel('tecnico'); };
     };
     $('btnAlertas').onclick = function () { ir('inicio'); };
     $('vista').innerHTML = cargando('Cargando…');
@@ -894,8 +907,9 @@
   function pintarMenu() {
     $('nav').innerHTML = SECCIONES.filter(function (s) { return puede(s.permiso); }).map(function (s) {
       return (s.separador ? '<hr>' : '') + '<a href="#' + s.id + '" data-sec="' + s.id + '" class="' + (AD.seccion === s.id ? 'activo' : '') + '">' + ICON[s.icono] + '<span>' + esc(s.t) + '</span><em class="cuenta" data-cuenta="' + s.id + '" style="display:none;font-style:normal"></em></a>';
-    }).join('');
-    $$('#nav a').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); ir(a.getAttribute('data-sec')); if (AD.cerrarMenu) AD.cerrarMenu(); }; });
+    }).join('') + (dosPaneles() ? '<hr><a href="#" id="navTecnico">' + ICON.ordenes + '<span>Mis servicios (técnico)</span></a>' : '');
+    $$('#nav a[data-sec]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); ir(a.getAttribute('data-sec')); if (AD.cerrarMenu) AD.cerrarMenu(); }; });
+    if ($('navTecnico')) $('navTecnico').onclick = function (e) { e.preventDefault(); cambiarPanel('tecnico'); };
   }
 
   /** Menú lateral en celular: entra desde la izquierda y sale por el mismo lado; se puede cerrar arrastrándolo. */
@@ -2523,7 +2537,7 @@
 
   var enviando = false;
   function procesarEnvios() {
-    if (enviando || !SES || SES.rol !== 'TECNICO') return;
+    if (enviando || !SES || !tieneRol('TECNICO')) return;
     var lista = misEnvios().filter(function (e) { return e.estado === 'pendiente' && e.n; }).sort(function (a, b) { return a.n - b.n; });
     if (!lista.length) { pintarRed(); return; }
     enviando = true; pintarRed();
@@ -2610,11 +2624,12 @@
   }
 
   function panelTecnico() {
-    $('raiz').innerHTML = '<div class="tec-barra"><img src="' + LOGO + '" alt="Family Air"><b>' + esc(SES.nombre) + '</b><button id="tSalir">Salir</button></div><div id="tRed" class="red" role="status" aria-live="polite"></div><div class="tec" id="vistaTec">' + cargando('Cargando sus servicios…') + '</div>';
+    $('raiz').innerHTML = '<div class="tec-barra"><img src="' + LOGO + '" alt="Family Air"><b>' + esc(SES.nombre) + '</b>' + (dosPaneles() ? '<button id="tOficina">Oficina</button>' : '') + '<button id="tSalir">Salir</button></div><div id="tRed" class="red" role="status" aria-live="polite"></div><div class="tec" id="vistaTec">' + cargando('Cargando sus servicios…') + '</div>';
     $('tSalir').onclick = function () {
       var n = misEnvios().length;
       confirmar(n ? 'Hay ' + n + ' envío(s) guardado(s) en este celular que no han llegado a la oficina. Si cierra la sesión, se envían cuando vuelva a ingresar con su usuario.' : '¿Cerrar sesión en este celular?', 'Cerrar sesión').then(function (si) { if (si) cerrarSesion(false); });
     };
+    if ($('tOficina')) $('tOficina').onclick = function () { cambiarPanel('oficina'); };
     iniciarEnvios();
     cargarMisOrdenes();
   }
