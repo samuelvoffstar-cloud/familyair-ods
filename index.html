@@ -195,6 +195,7 @@
   .estado.ANULADA { background: var(--rojo-claro); color: var(--rojo); text-decoration: line-through; }
   .marca { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 800; margin-left: 4px; white-space: nowrap; }
   .marca.ga { background: #1f2a37; color: #fff; }
+  .marca.sc { background: var(--verde-claro); color: var(--verde); }
   .marca.conf { background: var(--ambar-claro); color: var(--ambar); }
   .marca.perm { background: #ffe4e8; color: #c01048; }
   .marca.ret { background: var(--morado-claro); color: var(--morado); }
@@ -502,8 +503,10 @@
   var NOMBRES_PAGO = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', PENDIENTE: 'Pendiente por cobrar', FACTURA: 'Factura electrónica' };
   var NOMBRES_ROL = { ADMIN: 'Administrador', AUXILIAR: 'Auxiliar administrativa', LIQUIDACION: 'Liquidación', COBRO: 'Cobro y facturación', TECNICO: 'Técnico' };
   function chipEstado(e) { return '<span class="estado ' + esc(e) + '">' + esc(NOMBRES_ESTADO[e] || e) + '</span>'; }
+  var NOMBRES_TIPO_ORDEN = { ODS: 'Órdenes (ODS)', GARANTIA: 'Garantías (GA)', SIN_COBRO: 'Servicios sin cobro (SC)' };
   function marcasOrden(o) {
     return (o.tipoOrden === 'GARANTIA' ? '<span class="marca ga" title="Garantía">GA · caso ' + esc(o.numeroCaso) + '</span>' : '') +
+      (o.tipoOrden === 'SIN_COBRO' ? '<span class="marca sc" title="Servicio sin cobro">Sin cobro</span>' : '') +
       (o.pendDisponibilidad ? '<span class="marca conf">Por confirmar</span>' : '') +
       (o.requierePermisos ? '<span class="marca perm">Permisos</span>' : '') +
       (o.enRetorno ? '<span class="marca ret">Retorno</span>' : '') +
@@ -1213,7 +1216,7 @@
         if (f.texto) chips.push(['texto', 'Texto: ' + f.texto]);
         if (f.estados && f.estados.length) chips.push(['estados', 'Estado: ' + f.estados.map(function (e) { return NOMBRES_ESTADO[e]; }).join(', ')]);
         if (f.tecnico) chips.push(['tecnico', 'Técnico: ' + ((AD.tecnicos.filter(function (t) { return t.usuario === f.tecnico; })[0] || {}).nombre || f.tecnico)]);
-        if (f.tipoOrden) chips.push(['tipoOrden', f.tipoOrden === 'GARANTIA' ? 'Garantías (GA)' : 'Órdenes (ODS)']);
+        if (f.tipoOrden) chips.push(['tipoOrden', NOMBRES_TIPO_ORDEN[f.tipoOrden] || f.tipoOrden]);
         if (f.tipoServicio) chips.push(['tipoServicio', NOMBRES_TIPO[f.tipoServicio]]);
         if (f.desde || f.hasta) chips.push(['fechas', 'Programada: ' + (f.desde || '…') + ' a ' + (f.hasta || '…')]);
         var nFiltros = chips.length;
@@ -1236,7 +1239,7 @@
       '<label>Texto (número, caso, cliente, NIT, dirección)</label><input id="ffTexto" value="' + esc(f.texto || '') + '">' +
       '<label>Estado</label>' + opciones('ffEstado', AD.cat.estados, f.estados || [], true, NOMBRES_ESTADO) +
       '<div class="fila"><div><label>Técnico</label><select id="ffTec">' + opcionesTecnicos(f.tecnico, 'Todos') + '</select></div>' +
-      '<div><label>Tipo de orden</label><select id="ffTipoOrden"><option value="">Todas</option><option value="ODS"' + (f.tipoOrden === 'ODS' ? ' selected' : '') + '>Órdenes (ODS)</option><option value="GARANTIA"' + (f.tipoOrden === 'GARANTIA' ? ' selected' : '') + '>Garantías (GA)</option></select></div>' +
+      '<div><label>Tipo de orden</label><select id="ffTipoOrden"><option value="">Todas</option><option value="ODS"' + (f.tipoOrden === 'ODS' ? ' selected' : '') + '>Órdenes (ODS)</option><option value="GARANTIA"' + (f.tipoOrden === 'GARANTIA' ? ' selected' : '') + '>Garantías (GA)</option><option value="SIN_COBRO"' + (f.tipoOrden === 'SIN_COBRO' ? ' selected' : '') + '>Servicios sin cobro (SC)</option></select></div>' +
       '<div><label>Tipo de servicio</label><select id="ffTipo"><option value="">Todos</option>' + AD.cat.tiposServicio.map(function (t) { return '<option value="' + t + '"' + (f.tipoServicio === t ? ' selected' : '') + '>' + NOMBRES_TIPO[t] + '</option>'; }).join('') + '</select></div></div>' +
       '<div class="fila"><div><label>Programada desde</label><input type="date" id="ffDesde" value="' + esc(f.desde || '') + '"></div><div><label>Hasta</label><input type="date" id="ffHasta" value="' + esc(f.hasta || '') + '"></div></div>' +
       '<div class="acciones der"><button class="sec" id="ffLimpiar">Limpiar</button><button id="ffAplicar">Aplicar filtros</button></div>', 680);
@@ -1261,7 +1264,7 @@
     document.querySelector('.titulo-pag').innerHTML = '<h1>' + esc(d.id) + ' ' + chipEstado(d.estado) + marcasOrden(d) + '</h1><div class="acciones" id="dAcc" style="margin:0"></div>';
     var acc = [];
     var b = function (idb, txt, clase) { acc.push('<button id="' + idb + '" class="' + (clase || '') + '">' + txt + '</button>'); };
-    if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) { b('aRevisar', d.enRetorno ? 'Revisado · completar retorno' : 'Revisado', 'ok'); b('aDevolver', 'Devolver al técnico', 'sec'); }
+    if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) { b('aRevisar', d.enRetorno ? 'Revisado · completar retorno' : d.tipoOrden === 'SIN_COBRO' ? 'Revisado · completar' : 'Revisado', 'ok'); b('aDevolver', 'Devolver al técnico', 'sec'); }
     if ((d.estado === 'REVISADA' || d.estado === 'LIQUIDADA') && puede('liquidar')) b('aLiquidar', d.estado === 'REVISADA' ? 'Liquidar' : 'Corregir liquidación', d.estado === 'REVISADA' ? 'ok' : 'sec');
     if (d.estado === 'LIQUIDADA' && puede('cobrar')) { if (d.formaPago === 'FACTURA') b('aFacturar', 'Pasar a facturar', 'ok'); else b('aCobrar', 'Registrar pago y completar', 'ok'); }
     if (d.estado === 'POR_FACTURAR' && puede('cobrar')) { if (!d.siigoId) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
@@ -1297,7 +1300,7 @@
       dato('Contacto', esc(d.contacto) + (d.telefono ? ' · <a href="tel:' + esc(telLimpio(d.telefono)) + '">' + esc(d.telefono) + '</a> · <a href="' + urlWhatsapp(d.telefono) + '" target="_blank">WhatsApp</a>' : '')) +
       dato('Equipos', d.equipos.map(esc).join('<br>') || '<span class="gris">Sin equipos</span>') + '</dl></div>' +
       '<div class="tarjeta"><h2>Servicio</h2><dl class="datos">' +
-      dato('Tipo de orden', d.tipoOrden === 'GARANTIA' ? 'Garantía · caso <b>' + esc(d.numeroCaso) + '</b>' : 'Orden de servicio') +
+      dato('Tipo de orden', d.tipoOrden === 'GARANTIA' ? 'Garantía · caso <b>' + esc(d.numeroCaso) + '</b>' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro <span class="gris">(al revisarlo queda completado)</span>' : 'Orden de servicio') +
       dato('Tipo de servicio', esc(NOMBRES_TIPO[d.tipoServicio] || d.tipoServicio)) + dato('Tarifa', esc(d.tarifa === 'EMPRESARIAL' ? 'Empresarial' : 'Plena')) +
       dato('Programada', esc(d.fechaProgramada || 'Sin fecha')) + dato('Técnico', d.tecnicoNombre ? esc(d.tecnicoNombre) + ((d.apoyoNombres || []).length ? ' <span class="gris">(responsable)</span>' : '') : '<span class="error">Sin asignar</span>') +
       ((d.apoyoNombres || []).length ? dato('Apoyo', esc(d.apoyoNombres.join(', '))) : '') +
@@ -1362,7 +1365,7 @@
       boton.disabled = true;
       return promesa.then(function (nd) { aviso(msg, 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { aviso(e.message, 0, 'error'); boton.disabled = false; });
     };
-    accion('aRevisar', function () { ejecutar(this, api('adminRevisar', d.id), d.enRetorno ? 'Retorno completado.' : 'Orden revisada: pasa a liquidación.'); });
+    accion('aRevisar', function () { ejecutar(this, api('adminRevisar', d.id), d.enRetorno ? 'Retorno completado.' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro completado.' : 'Orden revisada: pasa a liquidación.'); });
     accion('aDevolver', function () { pedirTexto('Devolver al técnico', 'Motivo (el técnico lo verá en el historial)', function (t, m) { return api('adminDevolver', d.id, t).then(function (nd) { m.remove(); aviso('Orden devuelta al técnico.', 0, 'exito'); pintarDetalle(cont, nd); }); }); });
     accion('aLiquidar', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aCobrar', function () { modalCobrar(d, function (nd) { pintarDetalle(cont, nd); }); });
@@ -1546,8 +1549,9 @@
       (borrador ? '<div class="borrador"><span><b>Borrador recuperado</b> · guardado ' + esc(String(borrador.fecha || '').replace('T', ' ').slice(0, 16)) + '. La orden aún no está creada.</span><button class="link link-peligro" id="oDescartar" type="button">Descartar borrador</button></div>' : '') +
       '<div class="tarjeta"><h2>Número</h2>' +
       (editar ? '<div class="numero-orden"><div class="grande">' + esc(id) + '</div>' + (pre.tipoOrden === 'GARANTIA' ? '<div style="flex:1;max-width:280px"><label>Número de caso</label><input id="oCaso" value="' + esc(pre.numeroCaso) + '"></div>' : '') + '</div>' :
-        '<div class="numero-orden"><div>' + opciones('oTipoOrden', ['ODS', 'GARANTIA'], pre.tipoOrden || 'ODS', false, { ODS: 'Orden de servicio (ODS-#)', GARANTIA: 'Garantía (GA-#)' }) + '</div>' +
-        '<div id="oCasoBox" style="' + (pre.tipoOrden === 'GARANTIA' ? '' : 'display:none;') + 'flex:1;max-width:280px"><label>Número de caso *</label><input id="oCaso" value="' + esc(pre.numeroCaso || '') + '"></div></div><p class="gris">El número se asigna al guardar, en orden consecutivo.</p>') + '</div>' +
+        '<div class="numero-orden"><div>' + opciones('oTipoOrden', ['ODS', 'GARANTIA', 'SIN_COBRO'], pre.tipoOrden || 'ODS', false, { ODS: 'Orden de servicio (ODS-#)', GARANTIA: 'Garantía (GA-#)', SIN_COBRO: 'Servicio sin cobro (SC-#)' }) + '</div>' +
+        '<div id="oCasoBox" style="' + (pre.tipoOrden === 'GARANTIA' ? '' : 'display:none;') + 'flex:1;max-width:280px"><label>Número de caso *</label><input id="oCaso" value="' + esc(pre.numeroCaso || '') + '"></div></div><p class="gris">El número se asigna al guardar, en orden consecutivo.</p>' +
+        '<p class="gris" id="oSinCobroInfo"' + (pre.tipoOrden === 'SIN_COBRO' ? '' : ' style="display:none"') + '><b>Servicio sin cobro:</b> no gasta número ODS, no se liquida ni se factura. Sede y equipos son opcionales. El técnico lo cierra con una nota de lo que hizo (fotos opcionales); al revisarlo la auxiliar, queda completado.</p>') + '</div>' +
       '<div class="tarjeta"><h2>Cliente</h2><div class="con-boton"><div class="relativo"><input id="oBuscar" placeholder="Buscar por nombre o NIT (mínimo 3 letras)" autocomplete="off"><div id="oRes" class="lista-res" style="display:none"></div></div>' +
       (puede('clientes') ? '<button class="sec" id="oNuevoCli" title="Cliente nuevo">' + ICON.mas + ' Cliente nuevo</button>' : '') + '</div>' +
       '<div id="oCliente" style="margin-top:10px"></div>' +
@@ -1555,10 +1559,10 @@
         (puede('clientes') ? '<div class="eq-acc" style="margin-top:6px"><button class="link" id="oEditSede" type="button">Editar sede</button><button class="link link-peligro" id="oDelSede" type="button">Eliminar sede</button></div>' : '') + '</div><div id="oSedeInfo" class="gris" style="padding-top:34px"></div></div>' +
       '<label>Equipos a atender</label><div id="oEqTodosBox"></div><div id="oEquipos"></div>' + (puede('clientes') ? '<button class="link" id="oNuevoEq">+ Agregar equipo a esta sede</button>' : '') +
       '<div id="oSedesExtra"></div><button class="sec" id="oOtraSede" type="button" style="margin-top:10px">' + ICON.mas + ' Agregar otra sede a esta orden</button></div></div>' +
-      '<div class="tarjeta"><h2>Servicio</h2><label>Tipo de servicio *</label>' + opciones('oTipo', AD.cat.tiposServicio, pre.tipoServicio || '', false, NOMBRES_TIPO) +
-      '<label>Tarifa</label>' + opciones('oTarifa', AD.cat.tarifas, pre.tarifa || 'PLENA', false, { PLENA: 'Tarifa plena', EMPRESARIAL: 'Tarifa empresarial' }) +
+      '<div class="tarjeta" id="oServicioBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Servicio</h2><label>Tipo de servicio *</label>' + opciones('oTipo', AD.cat.tiposServicio, pre.tipoServicio || '', false, NOMBRES_TIPO) +
+      '<div id="oTarifaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><label>Tarifa</label>' + opciones('oTarifa', AD.cat.tarifas, pre.tarifa || 'PLENA', false, { PLENA: 'Tarifa plena', EMPRESARIAL: 'Tarifa empresarial' }) + '</div>' +
       '<label>Falla según el cliente</label><textarea id="oFalla">' + esc(pre.falla || '') + '</textarea></div>' +
-      '<div class="tarjeta"><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno</span></h2><div class="fila dos"><div><label>Cotización Siigo</label><div class="con-boton"><input id="oCot" placeholder="Ej: C-1-25" value="' + esc(pre.cotizacion || '') + '"><button class="sec" id="oCotTraer" type="button">Traer de Siigo</button></div>' +
+      '<div class="tarjeta" id="oCotBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno</span></h2><div class="fila dos"><div><label>Cotización Siigo</label><div class="con-boton"><input id="oCot" placeholder="Ej: C-1-25" value="' + esc(pre.cotizacion || '') + '"><button class="sec" id="oCotTraer" type="button">Traer de Siigo</button></div>' +
         '<p class="gris" id="oCotInfo" style="margin-top:4px">' + (pre.cotizacionTotal != null && pre.cotizacion ? 'Cotización ' + esc(pre.cotizacion) + ' · ' + esc(pre.cotizacionFecha || '') + ' · total ' + pesos(pre.cotizacionTotal) : 'Las líneas de la cotización pasan a los ítems al liquidar.') + '</p>' +
         '<button class="link link-peligro" id="oCotQuitar" type="button"' + (pre.cotizacion ? '' : ' style="display:none"') + '>Quitar cotización</button></div>' +
         '<div><label>Orden de compra Siigo</label><div class="con-boton"><input id="oOcNum" placeholder="Ej: OC-1-31" value="' + esc(pre.oc ? pre.oc.numero : '') + '"><button class="sec" id="oOcCorreo" type="button">Traer del correo</button></div>' +
@@ -1570,13 +1574,14 @@
       (AD.tecnicos.length > 1 ? '<label>Técnicos de apoyo</label>' + opciones('oApoyo', AD.tecnicos.map(function (t) { return t.usuario; }), pre.apoyo || [], true, AD.tecnicos.reduce(function (m, t) { m[t.usuario] = t.nombre; return m; }, {})) +
         '<p class="gris" style="margin-top:4px">A todos les aparece la orden en el celular y cualquiera la puede iniciar, documentar y cerrar. El responsable es el que sale en el calendario y en los informes.</p>' : '') +
       '<p class="gris">Los servicios se agendan el día anterior. Al guardar, la orden queda en el calendario administrativo.</p>' +
+      '<div id="oDetallesBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '>' +
       '<label class="chk"><input type="checkbox" id="oConf"' + (pre.pendDisponibilidad ? ' checked' : '') + '> Pendiente por confirmar disponibilidad</label>' +
       '<label class="chk"><input type="checkbox" id="oPerm"' + (pre.requierePermisos ? ' checked' : '') + '> Requiere enviar permisos al cliente</label>' +
-      '<div class="fila"><div><label>Contacto en sitio</label><input id="oContacto" value="' + esc(pre.contacto || '') + '"></div><div><label>Teléfono del contacto</label><input id="oTel" inputmode="tel" value="' + esc(pre.telefono || '') + '"></div></div>' +
-      '<label>Indicaciones para el técnico</label><textarea id="oSolicitud">' + esc(pre.solicitud || '') + '</textarea>' +
-      '<label>Observaciones internas del cliente</label><textarea id="oObsInt" placeholder="Ej: requiere escalera larga, pedir permiso en portería">' + esc(pre.obsInternas || '') + '</textarea>' +
-      '<p class="gris" style="margin-top:4px">Solo las ve la empresa y el técnico; no salen en el soporte. Quedan guardadas para las próximas órdenes de este cliente, igual que "Requiere enviar permisos".</p></div>' +
-      '<div class="tarjeta"><h2>Ficha técnica</h2><label class="chk"><input type="checkbox" id="oFichaOn"' + ((pre.fichas || []).length ? ' checked' : '') + '> Agregar ficha técnica (control de mantenimiento preventivo)</label>' +
+      '<div class="fila"><div><label>Contacto en sitio</label><input id="oContacto" value="' + esc(pre.contacto || '') + '"></div><div><label>Teléfono del contacto</label><input id="oTel" inputmode="tel" value="' + esc(pre.telefono || '') + '"></div></div></div>' +
+      '<label id="oSolicitudLbl">' + (pre.tipoOrden === 'SIN_COBRO' ? 'Observaciones' : 'Indicaciones para el técnico') + '</label><textarea id="oSolicitud">' + esc(pre.solicitud || '') + '</textarea>' +
+      '<div id="oObsIntBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><label>Observaciones internas del cliente</label><textarea id="oObsInt" placeholder="Ej: requiere escalera larga, pedir permiso en portería">' + esc(pre.obsInternas || '') + '</textarea>' +
+      '<p class="gris" style="margin-top:4px">Solo las ve la empresa y el técnico; no salen en el soporte. Quedan guardadas para las próximas órdenes de este cliente, igual que "Requiere enviar permisos".</p></div></div>' +
+      '<div class="tarjeta" id="oFichaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Ficha técnica</h2><label class="chk"><input type="checkbox" id="oFichaOn"' + ((pre.fichas || []).length ? ' checked' : '') + '> Agregar ficha técnica (control de mantenimiento preventivo)</label>' +
       '<p class="gris">Llene lo que tenga; el técnico debe completarla en el sitio. Se crea una por cada equipo marcado.</p><div id="oFichas"></div></div>' +
       (editar && (pre.trabajo || pre.recibeNombre || pre.horaCierre) ? '<div class="tarjeta"><h2>Datos del cierre del técnico</h2><label>Estado del artefacto</label>' + opciones('oArt', AD.cat.estadoArtefacto, pre.estadoArtefacto || [], true) +
         '<label>Trabajo realizado</label><textarea id="oTrabajo">' + esc(pre.trabajo || '') + '</textarea><label>Observaciones</label><textarea id="oObs">' + esc(pre.obs || '') + '</textarea>' +
@@ -1657,7 +1662,17 @@
       if (pre.oc && pre.oc.numero === num) return { numero: num, fecha: pre.oc.fecha || '', valor: pre.oc.valor == null ? '' : pre.oc.valor, id: pre.oc.id || '', tercero: pre.oc.tercero || '', items: pre.oc.items || [] };
       return { numero: num, fecha: '', valor: '', id: '', tercero: '', items: [] };
     }
-    if (!editar) $$('input[name="oTipoOrden"]').forEach(function (r) { r.addEventListener('change', function () { $('oCasoBox').style.display = valorOpcion('oTipoOrden') === 'GARANTIA' ? '' : 'none'; }); });
+    if (!editar) $$('input[name="oTipoOrden"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        var t = valorOpcion('oTipoOrden');
+        $('oCasoBox').style.display = t === 'GARANTIA' ? '' : 'none';
+        // Sin cobro: sin tarifa ni cotización/OC (no se liquida ni se factura).
+        $('oSinCobroInfo').style.display = t === 'SIN_COBRO' ? '' : 'none';
+        ['oTarifaBox', 'oCotBox', 'oServicioBox', 'oDetallesBox', 'oObsIntBox', 'oFichaBox'].forEach(function (k) { $(k).style.display = t === 'SIN_COBRO' ? 'none' : ''; });
+        $('oSolicitudLbl').textContent = t === 'SIN_COBRO' ? 'Observaciones' : 'Indicaciones para el técnico';
+        if (t === 'SIN_COBRO') { $('oConf').checked = false; $('oFichaOn').checked = false; }
+      });
+    });
 
     $('oBuscar').oninput = function () {
       var q = plano(this.value.trim()), res = $('oRes');
@@ -1860,8 +1875,9 @@
       var datos = recoger();
       var hayError = false;
       if (!datos.idCliente) { marcarError($('oBuscar'), 'Escoja el cliente.'); hayError = true; }
-      else if (!datos.idSede) { marcarError($('oSede'), 'El cliente necesita una sede.'); hayError = true; }
-      if (!datos.tipoServicio) { marcarError(document.querySelector('[data-opciones="oTipo"]'), 'Escoja el tipo de servicio.'); hayError = true; }
+      var sinCobro = (editar ? pre.tipoOrden : valorOpcion('oTipoOrden')) === 'SIN_COBRO';
+      if (datos.idCliente && !datos.idSede && !sinCobro) { marcarError($('oSede'), 'El cliente necesita una sede.'); hayError = true; }
+      if (!datos.tipoServicio && !sinCobro) { marcarError(document.querySelector('[data-opciones="oTipo"]'), 'Escoja el tipo de servicio.'); hayError = true; }
       if ($('oCaso') && $('oCasoBox') && $('oCasoBox').style.display !== 'none' && !datos.numeroCaso) { marcarError($('oCaso'), 'La garantía necesita el número de caso.'); hayError = true; }
       if (hayError) { $('oMsg').innerHTML = ''; irAlError(cont); return; }
       bt.disabled = true; $('oMsg').textContent = 'Guardando…';
@@ -3011,7 +3027,7 @@
     T.actual = d; T.abriendo = d.id;
     d.estado = estadoLocal(d.id, d.estado);
     if ((d.apoyo || []).length) sincronizarOrden(d); else clearInterval(T.relojSync);
-    var activa = d.estado === 'PROGRAMADA' || d.estado === 'EN_CURSO';
+    var activa = d.estado === 'PROGRAMADA' || d.estado === 'EN_CURSO', sinCobro = d.tipoOrden === 'SIN_COBRO';
     var pausada = d.estado === 'EN_PAUSA';
     var borrador = leerLocal('fa_borrador_' + d.id) || {};
     var canal = borrador.envioCanal || d.envioCanal || 'WHATSAPP';
@@ -3039,6 +3055,7 @@
       '<h3>' + esc(NOMBRES_TIPO[d.tipoServicio] || d.tipoServicio) + ' · ' + esc(d.fechaProgramada || 'Sin fecha') + '</h3>' +
       ((d.apoyoNombres || []).length ? '<p class="gris" style="margin-top:0">Equipo: <b>' + esc(d.tecnicoNombre) + '</b> (responsable), ' + esc(d.apoyoNombres.join(', ')) + '</p>' : '') +
       (d.tipoOrden === 'GARANTIA' ? '<p><b>Garantía</b> · caso ' + esc(d.numeroCaso) + '</p>' : '') +
+      (d.tipoOrden === 'SIN_COBRO' ? '<p><b>Servicio sin cobro</b></p>' : '') +
       (d.falla ? '<p><b>Falla según el cliente:</b> ' + esc(d.falla) + '</p>' : '') +
       (d.solicitud ? '<p><b>Indicaciones:</b> ' + esc(d.solicitud) + '</p>' : '') +
       (d.items.length ? '<p><b>A realizar:</b></p><ul style="margin-top:0">' + d.items.map(function (i) { return '<li>' + esc(i.desc) + (i.cant > 1 ? ' × ' + esc(i.cant) : '') + '</li>'; }).join('') + '</ul>' : '') +
@@ -3055,15 +3072,17 @@
         (d.estado === 'PROGRAMADA' ? (d.pendDisponibilidad ? '<div class="tarjeta"><p><b>Pendiente por confirmar.</b> La oficina debe confirmar el servicio antes de iniciarlo.</p></div>' : '<div class="tarjeta"><button id="oIniciar" class="btn-grande">Llegué · iniciar servicio</button></div>') : '') +
         '<div class="tarjeta"><h2>Evidencias</h2>' +
         ['ANTES', 'DESPUES', 'EVIDENCIA'].map(function (t) {
-          return '<h3>' + ({ ANTES: 'Fotos antes *', DESPUES: 'Fotos después *', EVIDENCIA: 'Otras evidencias' })[t] + '</h3><div class="fotos" id="f' + t + '"></div>' +
+          return '<h3>' + (sinCobro ? { ANTES: 'Fotos antes (opcional)', DESPUES: 'Fotos después (opcional)', EVIDENCIA: 'Otras evidencias' } : { ANTES: 'Fotos antes *', DESPUES: 'Fotos después *', EVIDENCIA: 'Otras evidencias' })[t] + '</h3><div class="fotos" id="f' + t + '"></div>' +
             '<label class="sec" id="b' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Agregar foto<input type="file" accept="image/*" capture="environment" multiple id="i' + t + '" style="display:none"></label>';
         }).join('') + '<p id="colaMsg" class="gris"></p></div>' +
         (fichas.length ? '<div class="tarjeta"><h2>Ficha técnica · Control de mantenimiento preventivo</h2><p class="gris" style="margin-top:0">Todos los campos son obligatorios. Use "Placa" para leer modelo y serial con la cámara.</p><div id="oFichas">' +
           fichas.map(function (f, i) { var eq = (d.equiposDetalle || []).filter(function (e) { return e.id === f.equipoId; })[0]; return htmlFicha(f, i, d.fichaCampos, d.fichaTareas, 'Equipo ' + f.equipoId + (eq && eq.tipo ? ' · ' + eq.tipo : ''), true); }).join('') + '</div></div>' : '') +
         '<div class="tarjeta"><h2>Cierre del servicio</h2>' +
         (d.estado === 'EN_CURSO' ? '<button class="sec" id="oPausar" style="width:100%;margin-bottom:6px">Pausar servicio (continúa otro día)</button>' : '') +
+        // Servicio sin cobro: solo la nota de lo que se hizo; lo demás queda oculto.
+        (sinCobro ? '<label>Nota de lo que se hizo *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea><div style="display:none">' : '') +
         '<label>Estado del artefacto *</label><div id="oArt">' + opciones('tArt', d.estadosArtefacto, borrador.estadoArtefacto || d.estadoArtefacto || [], true) + '</div>' +
-        '<label>Trabajo realizado' + ((d.jornadas || []).length ? ' en esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea>' +
+        (sinCobro ? '' : '<label>Trabajo realizado' + ((d.jornadas || []).length ? ' en esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea>') +
         '<label>Observaciones / recomendaciones *</label><textarea id="oObs">' + esc(borrador.obs || '') + '</textarea>' +
         '<label>Nombre de quien recibe *</label><input id="oRecibe" value="' + esc(borrador.recibeNombre || d.contacto || '') + '">' +
         '<label>Cédula de quien recibe *</label><input id="oDoc" inputmode="numeric" value="' + esc(borrador.recibeDoc || '') + '">' +
@@ -3072,7 +3091,7 @@
         '<label>Condiciones generales</label><div class="condiciones">' + d.condiciones.map(function (c) { return '<p>' + esc(c) + '</p>'; }).join('') + '</div>' +
         '<label class="chk"><input type="checkbox" id="oAcepta"> Quien recibe leyó y acepta las condiciones generales</label>' +
         '<label>Firma de quien recibe *</label><canvas class="firma" id="oFirma"></canvas>' +
-        '<div class="acciones"><button class="sec" id="oBorrarFirma">Borrar firma</button></div>' +
+        '<div class="acciones"><button class="sec" id="oBorrarFirma">Borrar firma</button></div>' + (sinCobro ? '</div>' : '') +
         '<div class="acciones"><button id="oCerrar" class="btn-grande ok">Completar servicio</button></div><p id="oMsg"></p></div>' : '');
 
     $('oVolver').onclick = cargarMisOrdenes;
@@ -3392,6 +3411,11 @@
       fichas: $('oFichas') ? leerFichas($('oFichas'), d.fichaTareas) : [] };
     $('oMsg').innerHTML = '';
     var hayError = false;
+    // Servicio sin cobro: solo la nota.
+    if (d.tipoOrden === 'SIN_COBRO') {
+      if (!datos.trabajo) { marcarError($('oTrabajo'), 'Escriba la nota de lo que se hizo.'); vibrar([30, 60, 30]); irAlError($('vistaTec')); return; }
+      return enviarCierre(d, datos);
+    }
     var tieneFoto = function (tipo) { return d.fotos.some(function (f) { return f.tipo === tipo; }) || enviosDe(d.id).some(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }); };
     if (!tieneFoto('ANTES')) { marcarError($('bANTES'), 'Agregue al menos una foto de antes.'); hayError = true; }
     if (!tieneFoto('DESPUES')) { marcarError($('bDESPUES'), 'Agregue al menos una foto de después.'); hayError = true; }
@@ -3413,7 +3437,7 @@
    * El borrador del texto se conserva hasta que la oficina lo recibe.
    */
   function enviarCierre(d, datos) {
-    datos.firma = T.firma.dato();
+    datos.firma = d.tipoOrden === 'SIN_COBRO' ? '' : T.firma.dato();
     $('oCerrar').disabled = true;
     encolar('tecCerrar', d.id, [d.id, datos]).then(function () {
       vibrar(20);
