@@ -860,10 +860,50 @@
   function cambiarPanel(p) { guardarLocal('fa_panel_' + SES.usuario, p); location.hash = ''; location.reload(); }
 
   function arrancar() {
+    if (SES.permisos && SES.permisos.avisoOrdenNueva) setTimeout(vigilarOrdenesNuevas, 2000);
     if (!dosPaneles()) { if (tieneRol('TECNICO')) panelTecnico(); else panelAdmin(); return; }
     // Con los dos roles: el panel que usó la última vez; la primera vez, técnico en el celular y oficina en el computador.
     var p = leerLocal('fa_panel_' + SES.usuario) || (window.matchMedia('(max-width: 760px)').matches ? 'tecnico' : 'oficina');
     if (p === 'tecnico') panelTecnico(); else panelAdmin();
+  }
+
+  /**
+   * Aviso de orden nueva (Lucas, que asigna los técnicos): cada minuto, si hubo cambios, mira las órdenes creadas
+   * por otros y avisa las que no había visto. Funciona en el panel de oficina y en el de técnico; al tocar el aviso
+   * abre la orden en la oficina. La primera vez solo marca como vistas las que ya había.
+   */
+  var RELOJ_NUEVAS = null;
+  function vigilarOrdenesNuevas() {
+    var clave = 'fa_nuevas_vistas_' + SES.usuario, vistas = leerLocal(clave), version = null;
+    var abrir = function (id) {
+      if ($('vistaTec')) { guardarLocal('fa_panel_' + SES.usuario, 'oficina'); location.hash = 'orden/' + id; location.reload(); }
+      else ir('orden/' + id);
+    };
+    var revisar = function () {
+      if (!SES || document.hidden || !navigator.onLine) return;
+      api('adminVersion').then(function (v) {
+        if (v === version) return;
+        version = v;
+        return api('adminOrdenesNuevas').then(function (l) {
+          var ids = l.map(function (o) { return o.id; });
+          var nuevas = vistas ? l.filter(function (o) { return vistas.indexOf(o.id) < 0; }) : [];
+          vistas = ids.concat((vistas || []).filter(function (x) { return ids.indexOf(x) < 0; })).slice(0, 200); guardarLocal(clave, vistas);
+          if (!nuevas.length) return;
+          var o = nuevas[0];
+          var texto = nuevas.length === 1 ? 'Orden nueva ' + o.id + ' · ' + o.cliente + (o.fecha ? ' · ' + o.fecha : '') + ' · ' + (o.tecnico ? 'técnico: ' + o.tecnico : 'sin técnico asignado') + '.'
+            : nuevas.length + ' órdenes nuevas (' + nuevas.map(function (x) { return x.id; }).join(', ') + ').';
+          aviso(texto + ' Toque para abrir.', 20000, 'exito', function () { abrir(o.id); });
+          vibrar([20, 40, 20]);
+          try { if (window.Notification && Notification.permission === 'granted') { var n = new Notification('Family Air · Orden nueva', { body: texto }); n.onclick = function () { window.focus(); abrir(o.id); }; } } catch (e) {}
+        });
+      }).catch(function () { version = null; });
+    };
+    revisar();
+    clearInterval(RELOJ_NUEVAS); RELOJ_NUEVAS = setInterval(revisar, 60000);
+    document.addEventListener('visibilitychange', revisar);
+    try {
+      if (window.Notification && Notification.permission === 'default') document.addEventListener('click', function pedir() { document.removeEventListener('click', pedir); try { Notification.requestPermission(); } catch (e) {} });
+    } catch (e) {}
   }
 
   window.addEventListener('scroll', function () { var b = document.querySelector('.barra'); if (b) b.classList.toggle('con-borde', window.scrollY > 4); }, { passive: true });
