@@ -6,7 +6,7 @@
   <meta name="description" content="Órdenes de servicio de Family Air: programación, técnicos en campo, evidencias, liquidación y cobro. Acceso solo para personal autorizado.">
   <meta name="robots" content="noindex, nofollow">
   <!-- Política de contenido: la app solo habla con Apps Script, las imágenes de Drive y la tipografía de Google. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://drive.google.com https://*.googleusercontent.com; connect-src https://script.google.com https://script.googleusercontent.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://drive.google.com https://*.googleusercontent.com; media-src 'self' blob:; connect-src https://script.google.com https://script.googleusercontent.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Family Air">
@@ -233,7 +233,11 @@
   .fotos img { width: 104px; height: 104px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borde); background: var(--fondo); }
   .fotos label.sel { margin: 0; position: relative; cursor: pointer; }
   .fotos .mini { position: relative; display: inline-block; }
-  .fotos .mini.pendiente img { opacity: .65; }
+  .fotos .mini.pendiente img, .fotos .mini.pendiente video { opacity: .65; }
+  .fotos video { width: 104px; height: 104px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borde); background: #1f2a37; display: block; }
+  .fotos .mini.video img { background: #1f2a37; }
+  .fotos .mini.video::before, .fotos a.video::before { content: '▶ Video'; position: absolute; right: 4px; top: 4px; z-index: 1; background: rgba(31,42,55,.85); color: #fff; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 1px 6px; }
+  .fotos a.video { position: relative; display: inline-block; }
   .fotos .mini.pendiente::after { content: 'Por enviar'; position: absolute; top: 4px; left: 4px; background: var(--ambar); color: #fff; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 1px 6px; }
   .red { display: none; padding: 9px 16px; font-size: 14px; font-weight: 600; line-height: 1.4; }
   .red.visible { display: block; }
@@ -997,7 +1001,7 @@
       '<div class="pie">' + esc(SES.nombre) + '<br>' + esc(nombreRoles()) + '</div></aside>' +
       '<div class="principal"><header class="barra">' +
       '<button class="icono btn-menu" id="btnMenu" title="Menú">' + ICON.menu + '</button>' +
-      '<div class="empresa">FAMILY AIR · GARCÍA PATIÑO ADRIANA LUCÍA</div>' +
+      '<div class="empresa">FAMILY AIR</div>' +
       '<div class="buscar">' + ICON.buscar + '<input id="busGlobal" placeholder="Buscar orden, cliente o NIT"></div>' +
       (puede('crear') ? '<button id="btnCrear">' + ICON.mas + ' Crear</button>' : '') +
       '<button class="icono" id="btnAlertas" title="Pendientes">' + ICON.campana + '<span class="punto" id="nAlertas" style="display:none"></span></button>' +
@@ -1331,7 +1335,7 @@
       var f = d.fotos.filter(function (x) { return x.tipo === tipo; });
       return f.length ? '<h3>' + titulo + ' (' + f.length + ')</h3><div class="fotos">' + f.map(function (x) {
         var por = x.usuario ? ((AD.tecnicos.filter(function (t) { return t.usuario === x.usuario; })[0] || {}).nombre || x.usuario) : '';
-        return '<a href="' + urlDrive(x.id) + '" target="_blank"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="' + tipo + '" loading="lazy"></a>';
+        return '<a href="' + urlDrive(x.id) + '" target="_blank"' + (tipo === 'VIDEO' ? ' class="video"' : '') + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="' + (tipo === 'VIDEO' ? 'Video de evidencia' : tipo) + '" loading="lazy"></a>';
       }).join('') + '</div>' : '';
     };
     var dato = function (t, v) { return v === '' || v == null ? '' : '<dt>' + esc(t) + '</dt><dd>' + v + '</dd>'; };
@@ -1389,7 +1393,7 @@
         (d.firmaId ? '<h3>Firma de quien recibe</h3><a href="' + urlDrive(d.firmaId) + '" target="_blank"><img src="' + miniDrive(d.firmaId) + '" alt="Firma de quien recibe" style="max-width:260px;border:1px solid var(--borde);border-radius:8px;background:#fff"></a>' : '') +
         '</div>' : '') +
       (d.fotos.length ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between">Evidencias' + (d.carpetaId ? '<a style="font-size:14px" href="' + urlCarpeta(d.carpetaId) + '" target="_blank">Abrir carpeta en Drive</a>' : '') + '</h2>' +
-        fotos('ANTES', 'Antes') + fotos('DESPUES', 'Después') + fotos('EVIDENCIA', 'Otras evidencias') + fotos('PLACA', 'Placas') + '</div>' : '') +
+        fotos('ANTES', 'Antes') + fotos('DESPUES', 'Después') + fotos('EVIDENCIA', 'Otras evidencias') + fotos('VIDEO', 'Videos') + fotos('PLACA', 'Placas') + '</div>' : '') +
       (d.liquidadoPor || d.formaPago || d.factura || d.siigoError ? '<div class="tarjeta"><h2>Liquidación, cobro y factura</h2><dl class="datos">' +
         dato('Adicionales', esc(d.adicionales)) + dato('Forma de pago', esc(NOMBRES_PAGO[d.formaPago] || d.formaPago)) +
         dato('Liquidó', esc([d.liquidadoPor, d.fechaLiquidacion].filter(Boolean).join(' · '))) +
@@ -2887,7 +2891,7 @@
     var siguiente = function () {
       var e = lista.shift();
       if (!e) { enviando = false; pintarRed(); if (!T.actual && $('tRefrescar')) refrescarLista(); return; }
-      apiTec.apply(null, [e.fn].concat(e.args)).then(function (r) {
+      (e.fn === 'tecSubirVideo' ? subirVideo(e) : apiTec.apply(null, [e.fn].concat(e.args))).then(function (r) {
         return BD.quitar(e.n).then(function () { T.pend = T.pend.filter(function (x) { return x !== e; }); alEnviar(e, r); pintarRed(); siguiente(); });
       }).catch(function (err) {
         if (esRed(err) || /SESION_VENCIDA/.test(err.message)) {
@@ -2906,13 +2910,13 @@
     var clave = claveCopia('det', e.ods);
     BD.leer(clave).then(function (d) {
       if (!d) return;
-      if (e.fn === 'tecSubirFoto' && r) d.fotos.push({ tipo: e.tipo, id: r, clave: e.clave, usuario: SES.usuario, por: SES.nombre });
+      if ((e.fn === 'tecSubirFoto' || e.fn === 'tecSubirVideo') && r) d.fotos.push({ tipo: e.tipo, id: r, clave: e.clave, usuario: SES.usuario, por: SES.nombre });
       if (e.fn === 'tecGuardarEquipo' && r) d.equiposDetalle = r;
       if ({ tecIniciar: 1, tecReanudar: 1, tecPausar: 1, tecCerrar: 1 }[e.fn]) d.estado = r || d.estado;
       BD.guardar(clave, d);
     });
     if (T.actual && T.actual.id === e.ods) {
-      if (e.fn === 'tecSubirFoto' && r) { T.actual.fotos.push({ tipo: e.tipo, id: r, clave: e.clave, usuario: SES.usuario }); if (T.vistas) T.vistas.push(r); }
+      if ((e.fn === 'tecSubirFoto' || e.fn === 'tecSubirVideo') && r) { T.actual.fotos.push({ tipo: e.tipo, id: r, clave: e.clave, usuario: SES.usuario }); if (T.vistas) T.vistas.push(r); }
       if (e.fn === 'tecGuardarEquipo' && r && $('tEquipos')) { T.actual.equiposDetalle = r; pintarEquipos(r, false); }
       $$('.mini.pendiente[data-clave="' + e.clave + '"]').forEach(function (m) { m.classList.remove('pendiente'); });
       pintarCola();
@@ -2937,7 +2941,7 @@
 
   function modalErrores() {
     var lista = misEnvios().filter(function (e) { return e.estado === 'error'; });
-    var nombre = { tecIniciar: 'Iniciar', tecSubirFoto: 'Foto', tecPausar: 'Pausa', tecReanudar: 'Retomar', tecCerrar: 'Cierre', tecGuardarEquipo: 'Equipo' };
+    var nombre = { tecIniciar: 'Iniciar', tecSubirFoto: 'Foto', tecSubirVideo: 'Video', tecPausar: 'Pausa', tecReanudar: 'Retomar', tecCerrar: 'Cierre', tecGuardarEquipo: 'Equipo' };
     var m = modal('Envíos con error', '<p class="gris" style="margin-top:0">El servidor no aceptó estos envíos. Corrija lo que indica y reintente, o descártelos.</p>' + lista.map(function (e, i) {
       return '<div class="tarjeta" style="padding:10px 12px"><b>' + esc(e.ods) + ' · ' + esc(nombre[e.fn] || e.fn) + '</b><br><span class="error">' + esc(e.error) + '</span>' +
         '<div class="acciones"><button class="sec" data-reint="' + i + '">Reintentar</button><button class="sec peligro" data-desc="' + i + '">Descartar</button></div></div>';
@@ -3124,7 +3128,11 @@
         ['ANTES', 'DESPUES', 'EVIDENCIA'].map(function (t) {
           return '<h3>' + (sinCobro ? { ANTES: 'Fotos antes (opcional)', DESPUES: 'Fotos después (opcional)', EVIDENCIA: 'Otras evidencias' } : { ANTES: 'Fotos antes *', DESPUES: 'Fotos después *', EVIDENCIA: 'Otras evidencias' })[t] + '</h3><div class="fotos" id="f' + t + '"></div>' +
             '<label class="sec" id="b' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Agregar foto<input type="file" accept="image/*" capture="environment" multiple id="i' + t + '" style="display:none"></label>';
-        }).join('') + '<p id="colaMsg" class="gris"></p></div>' +
+        }).join('') +
+        '<h3>Videos (opcional)</h3><div class="fotos" id="fVIDEO"></div>' +
+        '<label class="sec" id="bVIDEO" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Grabar video<input type="file" accept="video/*" capture="environment" id="iVIDEO" style="display:none"></label>' +
+        '<p class="gris" style="margin:6px 0 0">Para mostrar un ruido, una fuga o el equipo funcionando. Hasta unos 2 minutos; sin señal queda guardado y se sube solo.</p>' +
+        '<p id="colaMsg" class="gris"></p></div>' +
         (fichas.length ? '<div class="tarjeta"><h2>Ficha técnica · Control de mantenimiento preventivo</h2><p class="gris" style="margin-top:0">Todos los campos son obligatorios. Use "Placa" para leer modelo y serial con la cámara.</p><div id="oFichas">' +
           fichas.map(function (f, i) { var eq = (d.equiposDetalle || []).filter(function (e) { return e.id === f.equipoId; })[0]; return htmlFicha(f, i, d.fichaCampos, d.fichaTareas, 'Equipo ' + f.equipoId + (eq && eq.tipo ? ' · ' + eq.tipo : ''), true); }).join('') + '</div></div>' : '') +
         '<div class="tarjeta"><h2>Cierre del servicio</h2>' +
@@ -3173,6 +3181,9 @@
       enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave); });
       $('i' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
     });
+    d.fotos.filter(function (f) { return f.tipo === 'VIDEO'; }).forEach(function (f) { agregarMini('VIDEO', miniDrive(f.id), (d.apoyo || []).length ? f.por : ''); });
+    enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirVideo'; }).forEach(function (e) { agregarMini('VIDEO', urlLocal(e.blob), (d.apoyo || []).length ? 'Usted' : '', e.clave); });
+    $('iVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
     $('tEqNuevo').onclick = function () { T.placaEquipo = null; T.fichaDestino = null; modalPlaca(null, null); };
     T.firma = prepararFirma($('oFirma'));
     $('oBorrarFirma').onclick = T.firma.limpiar;
@@ -3350,7 +3361,17 @@
     var cont = $('f' + tipo); if (!cont) return;
     var m = document.createElement('div'); m.className = 'mini' + (clavePendiente ? ' pendiente' : '');
     if (clavePendiente) m.setAttribute('data-clave', clavePendiente);
-    var img = document.createElement('img'); img.src = src; img.alt = 'Foto ' + ({ ANTES: 'de antes', DESPUES: 'de después', EVIDENCIA: 'de evidencia' })[tipo]; m.appendChild(img);
+    if (tipo === 'VIDEO') {
+      // Video: el que está en el celular se ve con su primer cuadro; el que ya está en Drive, con la miniatura de Drive.
+      m.className += ' video';
+      if (/^blob:/.test(src)) {
+        var v = document.createElement('video'); v.src = src; v.muted = true; v.playsInline = true; v.preload = 'metadata'; v.setAttribute('aria-label', 'Video de evidencia'); m.appendChild(v);
+      } else {
+        var iv = document.createElement('img'); iv.src = src; iv.alt = 'Video de evidencia'; iv.onerror = function () { iv.removeAttribute('src'); }; m.appendChild(iv);
+      }
+    } else {
+      var img = document.createElement('img'); img.src = src; img.alt = 'Foto ' + ({ ANTES: 'de antes', DESPUES: 'de después', EVIDENCIA: 'de evidencia' })[tipo]; m.appendChild(img);
+    }
     if (por) { var p = document.createElement('span'); p.className = 'por'; p.textContent = por; m.appendChild(p); }
     cont.appendChild(m);
   }
@@ -3429,10 +3450,54 @@
     });
   }
 
+  // ---------- Videos: quedan en el celular y se suben por partes de 4 MB; si se cae la señal, siguen donde iban ----------
+  var MAX_VIDEO = 150 * 1024 * 1024, PARTE_VIDEO = 4 * 1024 * 1024;
+  function urlLocal(blob) { try { return blob ? URL.createObjectURL(blob) : ''; } catch (e) { return ''; } }
+
+  function encolarVideo(file) {
+    var d = T.actual;
+    if (file.size > MAX_VIDEO) { aviso('El video pesa ' + Math.round(file.size / 1048576) + ' MB y el máximo es 150 MB. Grábelo más corto.', 6000, 'error'); return; }
+    var clave = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    agregarMini('VIDEO', urlLocal(file), (d.apoyo || []).length ? 'Usted' : '', clave);
+    encolar('tecSubirVideo', d.id, [], { tipo: 'VIDEO', clave: clave, blob: file, mime: file.type || 'video/mp4', total: file.size, enviado: 0 }).then(pintarCola);
+  }
+
+  function base64De(blob) {
+    return new Promise(function (ok, fallo) {
+      var r = new FileReader();
+      r.onload = function () { ok(String(r.result).split(',')[1] || ''); };
+      r.onerror = function () { fallo(new Error('No se pudo leer el video guardado en el celular.')); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  /** Sube el video parte por parte; guarda el avance en el celular para seguir desde ahí si se corta. Responde el id en Drive. */
+  function subirVideo(e) {
+    if (!e.blob) return Promise.reject(new Error('El video ya no está en el celular. Descártelo y grábelo de nuevo.'));
+    var paso = function () {
+      var ini = e.enviado || 0;
+      return base64De(e.blob.slice(ini, Math.min(ini + PARTE_VIDEO, e.total))).then(function (b64) {
+        return apiTec('tecVideoParte', e.ods, e.clave, ini, e.total, e.mime, b64);
+      }).then(function (r) {
+        if (r.id) return r.id;
+        if (r.reiniciar && !ini) throw new Error('Drive no aceptó el video. Intente de nuevo.');
+        if (!r.reiniciar && !(r.siguiente > ini)) throw new Error('Drive no recibió esa parte del video. Intente de nuevo.');
+        e.enviado = r.reiniciar ? 0 : r.siguiente;
+        return BD.actualizar(e).then(function () { pintarCola(); return paso(); });
+      });
+    };
+    return paso();
+  }
+
   function pintarCola() {
     if (!$('colaMsg') || !T.actual) return;
-    var pend = enviosDe(T.actual.id).filter(function (e) { return e.fn === 'tecSubirFoto'; }).length;
-    $('colaMsg').innerHTML = pend ? pend + ' foto(s) guardada(s) en el celular' + (navigator.onLine ? ', subiendo…' : '; se suben solas cuando haya señal.') : '';
+    var lista = enviosDe(T.actual.id);
+    var pend = lista.filter(function (e) { return e.fn === 'tecSubirFoto'; }).length;
+    var videos = lista.filter(function (e) { return e.fn === 'tecSubirVideo'; });
+    var txt = [];
+    if (pend) txt.push(pend + ' foto(s)');
+    if (videos.length) txt.push(videos.length + ' video(s)' + (navigator.onLine ? ' (' + videos.map(function (v) { return Math.floor(100 * (v.enviado || 0) / v.total) + ' %'; }).join(', ') + ')' : ''));
+    $('colaMsg').innerHTML = txt.length ? txt.join(' y ') + ' guardado(s) en el celular' + (navigator.onLine ? ', subiendo…' : '; se suben solos cuando haya señal.') : '';
   }
 
   // ---------- Firma ----------
