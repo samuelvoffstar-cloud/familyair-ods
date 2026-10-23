@@ -2180,7 +2180,7 @@
     var NOMBRES_CAT = { SERVICIO: 'servicio', MATERIAL: 'producto (material)', TRANSPORTE: 'servicio' };
     var m = modal('Producto de Siigo de cada ítem',
       '<p class="gris" style="margin-top:0">Siigo solo factura productos que existan allá. Escoja uno existente (código o nombre) o créelo en Siigo con la descripción del ítem. Descripción, cantidad y valor quedan como se liquidaron.</p>' +
-      (r.puedeCrear ? '' : '<p class="error">Para crear productos desde la app falta poner en las Propiedades del script SIIGO_GRUPO_SERVICIO y SIIGO_GRUPO_MATERIAL (los muestra el menú Family Air → Probar conexión con Siigo).</p>') +
+      (r.puedeCrear ? '' : '<p class="error">Para crear productos desde la app falta el grupo de inventario de Siigo de este tipo de servicio (los muestra el menú Family Air → Probar conexión con Siigo).</p>') +
       r.faltan.map(function (x) {
         var crear = r.puedeCrear && !x.parecido;
         return '<div class="tarjeta" data-it="' + x.n + '" style="padding:12px;margin:8px 0"><b>' + esc(x.desc) + '</b>' + (x.cod ? ' <span class="error">(el código ' + esc(x.cod) + ' no existe en Siigo)</span>' : '') +
