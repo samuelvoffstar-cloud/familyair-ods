@@ -521,6 +521,7 @@
       (o.tipoOrden === 'SIN_COBRO' ? '<span class="marca sc" title="Servicio sin cobro">Sin cobro</span>' : '') +
       (o.pendDisponibilidad ? '<span class="marca conf">Por confirmar</span>' : '') +
       (o.requierePermisos ? '<span class="marca perm">Permisos</span>' : '') +
+      (o.esperandoOC ? '<span class="marca conf" title="El cliente factura con orden de compra y todavía no se ha registrado">Esperando OC</span>' : '') +
       (o.enRetorno ? '<span class="marca ret">Retorno</span>' : '') +
       (o.auto ? '<span class="marca auto" title="Creada automáticamente por frecuencia">Automática</span>' : '');
   }
@@ -1320,7 +1321,12 @@
     if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) { b('aRevisar', d.enRetorno ? 'Revisado · completar retorno' : d.tipoOrden === 'SIN_COBRO' ? 'Revisado · completar' : 'Revisado', 'ok'); b('aDevolver', 'Devolver al técnico', 'sec'); }
     if ((d.estado === 'REVISADA' || d.estado === 'LIQUIDADA') && puede('liquidar')) b('aLiquidar', d.estado === 'REVISADA' ? 'Liquidar' : 'Corregir liquidación', d.estado === 'REVISADA' ? 'ok' : 'sec');
     if (d.estado === 'LIQUIDADA' && puede('cobrar')) { if (d.formaPago === 'FACTURA') b('aFacturar', 'Pasar a facturar', 'ok'); else b('aCobrar', 'Registrar pago y completar', 'ok'); }
-    if (d.estado === 'POR_FACTURAR' && puede('cobrar')) { if (!d.siigoId) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
+    // Cliente que factura con orden de compra: cotización en Siigo con lo liquidado → OC del cliente → factura.
+    if (d.facturaConOc && d.formaPago === 'FACTURA' && ['LIQUIDADA', 'POR_FACTURAR'].indexOf(d.estado) >= 0 && !d.siigoId && puede('cobrar')) {
+      if (!d.cotizacionId) b('aCotSiigo', 'Crear cotización en Siigo', d.estado === 'POR_FACTURAR' ? 'ok' : 'sec');
+      b('aRegOC', d.ocNumero ? 'Cambiar orden de compra' : 'Registrar orden de compra', d.ocNumero ? 'sec' : (d.cotizacionId ? 'ok' : 'sec'));
+    }
+    if (d.estado === 'POR_FACTURAR' && puede('cobrar')) { if (!d.siigoId && !d.esperandoOC) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
     if (d.estado === 'COMPLETADA' && puede('retorno')) b('aRetorno', 'Retorno', 'sec');
     if (['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('soporte')) b('aSoporte', ICON.wa + ' Enviar soporte', d.estado === 'CERRADA_TECNICO' || d.soporteEnviado ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
@@ -1359,6 +1365,7 @@
       ((d.apoyoNombres || []).length ? dato('Apoyo', esc(d.apoyoNombres.join(', '))) : '') +
       dato('Disponibilidad', d.pendDisponibilidad ? '<span class="marca conf">Pendiente por confirmar</span>' : 'Confirmada') +
       dato('Permisos', d.requierePermisos ? '<span class="marca perm">Requiere enviar permisos al cliente</span>' : 'No requiere') +
+      (d.facturaConOc ? dato('Facturación', 'Con orden de compra · ' + (d.cotizacion ? 'cotización ' + esc(d.cotizacion) : 'sin cotización') + ' · ' + (d.ocNumero ? 'OC ' + esc(d.ocNumero) : '<span class="marca conf">Esperando OC</span>')) : '') +
       dato('Falla según el cliente', esc(d.falla)) + dato('Indicaciones', esc(d.solicitud)) +
       dato('Creada', esc(d.creada) + ' · ' + esc(d.creadoPor)) + '</dl></div></div>' +
       (d.obsInternas ? '<div class="nota-interna" style="margin-bottom:16px"><b>Nota interna del cliente · no sale en el soporte</b>' + esc(d.obsInternas) + '</div>' : '') +
@@ -1425,19 +1432,18 @@
     accion('aFacturar', function () { var bt = this; confirmar('La orden ' + d.id + ' pasa a Por facturar.', 'Pasar a facturar').then(function (si) { if (si) ejecutar(bt, api('adminPasarAFacturar', d.id), 'Orden en Por facturar.'); }); });
     accion('aSiigo', function () {
       var bt = this;
-      confirmar('Se creará la factura en Siigo por ' + pesos(d.total) + ' + IVA para ' + d.cliente + ', sin enviarla a la DIAN.', 'Enviar a Siigo').then(function (si) {
+      confirmar('Se creará la factura en Siigo por ' + pesos(d.total) + ' + IVA para ' + d.cliente + (d.ocNumero ? ', con la orden de compra ' + d.ocNumero + ' como documento de referencia' : '') + ', sin enviarla a la DIAN.', 'Enviar a Siigo').then(function (si) {
         if (!si) return;
-        var facturar = function () { ejecutar(bt, api('adminEnviarSiigo', d.id), 'Factura creada en Siigo. Revísela y termínela allá.'); };
-        // Si algún ítem no tiene producto de Siigo, se escoge antes de enviar (sin devolver la orden a liquidación).
-        var enviar = function () {
-          api('adminItemsSiigo', d.id).then(function (r) { if (r.faltan && r.faltan.length) modalProductosSiigo(d, r, facturar); else facturar(); })
-            .catch(function (e) { aviso(e.message, 0, 'error'); });
-        };
-        // Si el cliente no existe en Siigo, primero se crea con los datos de la app y luego se envía la factura.
-        api('adminClienteSiigo', d.id).then(function (c) { if (c.existe || !c.conectado) enviar(); else modalClienteSiigo(d, c, enviar); })
-          .catch(function (e) { aviso(e.message, 0, 'error'); });
+        prepararSiigo(d, function () { ejecutar(bt, api('adminEnviarSiigo', d.id), 'Factura creada en Siigo. Revísela y termínela allá.'); }, 'Guardar y enviar a Siigo');
       });
     });
+    accion('aCotSiigo', function () {
+      var bt = this;
+      confirmar('Se creará en Siigo la cotización de ' + d.id + ' para ' + d.cliente + ' por ' + pesos(d.total) + ' + IVA, con los ítems liquidados. Después envíela al cliente desde Siigo.', 'Crear cotización').then(function (si) {
+        if (si) prepararSiigo(d, function () { ejecutar(bt, api('adminCrearCotizacionSiigo', d.id), 'Cotización creada en Siigo. Envíela al cliente desde Siigo y espere su orden de compra.'); }, 'Guardar y crear la cotización');
+      });
+    });
+    accion('aRegOC', function () { modalRegistrarOC(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aFacturaOk', function () {
       var m = modal('Factura terminada', '<p>Confirme que la factura quedó terminada en Siigo. La orden pasa a <b>Completada</b>.</p><label>Número de factura de Siigo</label><input id="mFact" value="' + esc(d.factura && !/^ENVIANDO/.test(d.factura) ? d.factura : '') + '" placeholder="Ej: FV-1-2345"><div class="acciones der"><button id="mOk" class="ok">Completar orden</button></div><p id="mMsg"></p>', 480);
       m.querySelector('#mOk').onclick = function () { var bt = this; bt.disabled = true; api('adminFacturaTerminada', d.id, $('mFact').value).then(function (nd) { m.remove(); aviso('Orden completada.', 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { $('mMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; }); };
@@ -2016,11 +2022,12 @@
       '<div><label>Teléfono</label><input id="ecTel" value="' + esc(c.telefono) + '"></div><div><label>Correo</label><input id="ecEmail" value="' + esc(c.email) + '"></div><div><label>Estado</label><select id="ecEstado"><option' + (/^activ/i.test(c.estado) ? ' selected' : '') + '>Activo</option><option' + (/^inactiv/i.test(c.estado) ? ' selected' : '') + '>Inactivo</option></select></div>' +
       '<div><label>Dirección</label><input id="ecDir" value="' + esc(c.direccion) + '"></div><div><label>Ciudad</label><input id="ecCiudad" value="' + esc(c.ciudad) + '"></div></div>' +
       '<label class="chk"><input type="checkbox" id="ecPerm"' + (c.requierePermisos === 'SI' ? ' checked' : '') + '> Requiere enviar permisos (por defecto en sus órdenes)</label>' +
+      '<label class="chk"><input type="checkbox" id="ecOc"' + (String(c.facturaConOc || '').toUpperCase() === 'SI' ? ' checked' : '') + '> Factura con orden de compra (primero cotización; sin OC no se factura)</label>' +
       '<label>Observaciones internas (no salen en el soporte)</label><textarea id="ecObsInt">' + esc(c.obsInternas || '') + '</textarea>' +
       '<p class="gris">Queda guardado en la base y se corrige en las órdenes abiertas del cliente. Las completadas conservan lo que se le entregó.</p><div class="acciones der"><button id="ecOk">Guardar</button></div><p id="ecMsg"></p>', 760);
     m.querySelector('#ecOk').onclick = function () {
       var bt = this; bt.disabled = true;
-      api('adminEditarMaestra', 'CLIENTES', c.id, { nombre: $('ecNombre').value, nit: $('ecNit').value, dv: $('ecDv').value, telefono: $('ecTel').value, email: $('ecEmail').value, estado: $('ecEstado').value, direccion: $('ecDir').value, ciudad: $('ecCiudad').value, requierePermisos: $('ecPerm').checked ? 'SI' : 'NO', obsInternas: $('ecObsInt').value })
+      api('adminEditarMaestra', 'CLIENTES', c.id, { nombre: $('ecNombre').value, nit: $('ecNit').value, dv: $('ecDv').value, telefono: $('ecTel').value, email: $('ecEmail').value, estado: $('ecEstado').value, direccion: $('ecDir').value, ciudad: $('ecCiudad').value, requierePermisos: $('ecPerm').checked ? 'SI' : 'NO', facturaConOc: $('ecOc').checked ? 'SI' : 'NO', obsInternas: $('ecObsInt').value })
         .then(function () { m.remove(); aviso('Cliente actualizado.', 0, 'exito'); api('adminClientes').then(function (l) { AD.clientes = l; }); listo(); })
         .catch(function (e) { $('ecMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
@@ -2147,7 +2154,7 @@
   function modalClienteSiigo(d, c, alCrear) {
     var opc = function (lista, sel) { return lista.map(function (x) { return '<option value="' + esc(x.codigo) + '"' + (x.codigo === sel ? ' selected' : '') + '>' + esc(x.nombre) + '</option>'; }).join(''); };
     var m = modal('Crear cliente en Siigo',
-      '<p class="gris" style="margin-top:0">' + esc(d.cliente) + ' no existe en Siigo. Revise los datos: se crea allá y enseguida se envía la factura de ' + esc(d.id) + '.</p>' +
+      '<p class="gris" style="margin-top:0">' + esc(d.cliente) + ' no existe en Siigo. Revise los datos: se crea allá y enseguida se continúa con ' + esc(d.id) + '.</p>' +
       '<div class="fila"><div><label>Tipo de persona</label><select id="csTipo"><option value="E"' + (c.empresa ? ' selected' : '') + '>Empresa</option><option value="P"' + (c.empresa ? '' : ' selected') + '>Persona natural</option></select></div>' +
       '<div><label>Tipo de documento</label><select id="csDoc">' + ['NIT', 'CC', 'CE', 'PASAPORTE'].map(function (t) { return '<option' + (t === c.tipoDocumento ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></div>' +
       '<div><label>Número *</label><input id="csNit" inputmode="numeric" value="' + esc(c.nit) + '"></div><div id="csDvBox"><label>DV</label><input id="csDv" inputmode="numeric" maxlength="1" value="' + esc(c.dv) + '"></div></div>' +
@@ -2156,7 +2163,7 @@
       '<div class="fila"><div style="grid-column:span 2"><label>Dirección *</label><input id="csDir" value="' + esc(c.direccion) + '"></div><div><label>Ciudad *</label><select id="csCiudad">' + opc(c.ciudades, c.ciudad) + '</select></div>' +
       '<div><label>Teléfono</label><input id="csTel" inputmode="tel" value="' + esc(c.telefono) + '"></div><div style="grid-column:span 2"><label>Correo para la factura electrónica *</label><input id="csEmail" type="email" value="' + esc(c.email) + '"></div>' +
       '<div><label>Responsabilidad fiscal</label><select id="csResp">' + opc(c.responsabilidades, 'R-99-PN') + '</select></div><div><label style="display:flex;gap:6px;align-items:center;margin-top:24px"><input type="checkbox" id="csIva" style="width:auto"> Responsable de IVA</label></div></div>' +
-      '<div class="acciones der"><button id="csCrear">Crear en Siigo y enviar factura</button></div><p id="csMsg"></p>', 760);
+      '<div class="acciones der"><button id="csCrear">Crear en Siigo y continuar</button></div><p id="csMsg"></p>', 760);
     var pintar = function () {
       var emp = $('csTipo').value === 'E';
       $('csEmpresa').style.display = emp ? '' : 'none'; $('csPersona').style.display = emp ? 'none' : '';
@@ -2169,13 +2176,51 @@
         contacto: $('csContacto').value, nombres: $('csNombres').value, apellidos: $('csApellidos').value, direccion: $('csDir').value, ciudad: $('csCiudad').value,
         telefono: $('csTel').value, email: $('csEmail').value, responsabilidad: $('csResp').value, responsableIva: $('csIva').checked };
       api('adminCrearClienteSiigo', d.id, datos).then(function (r) {
-        m.remove(); aviso(r.creado ? 'Cliente creado en Siigo. Enviando la factura…' : 'El cliente ya estaba en Siigo. Enviando la factura…', 0, 'exito'); alCrear();
+        m.remove(); aviso(r.creado ? 'Cliente creado en Siigo. Continuando…' : 'El cliente ya estaba en Siigo. Continuando…', 0, 'exito'); alCrear();
       }).catch(function (e) { $('csMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
   }
 
-  /** Escoger el producto de Siigo de los ítems que no lo tienen; se guarda el código y se envía la factura. */
-  function modalProductosSiigo(d, r, alGuardar) {
+  /**
+   * Antes de un documento en Siigo (factura o cotización): si el cliente no existe allá se crea, y si algún ítem no
+   * tiene producto se escoge o se crea. Después corre accion().
+   */
+  function prepararSiigo(d, accion, textoBoton) {
+    var productos = function () {
+      api('adminItemsSiigo', d.id).then(function (r) { if (r.faltan && r.faltan.length) modalProductosSiigo(d, r, accion, textoBoton); else accion(); })
+        .catch(function (e) { aviso(e.message, 0, 'error'); });
+    };
+    api('adminClienteSiigo', d.id).then(function (c) { if (c.existe || !c.conectado) productos(); else modalClienteSiigo(d, c, productos); })
+      .catch(function (e) { aviso(e.message, 0, 'error'); });
+  }
+
+  /** Cobro registra la orden de compra que envió el cliente; avisa si el valor no es el cotizado y busca el PDF en el correo. */
+  function modalRegistrarOC(d, listo) {
+    var m = modal('Orden de compra · ' + d.id,
+      '<p class="gris" style="margin-top:0">' + esc(d.cliente) + ' factura con orden de compra. ' + (d.cotizacion ? 'Cotización ' + esc(d.cotizacion) + ' por ' + pesos(d.total) + ' + IVA.' : 'Liquidado: ' + pesos(d.total) + ' + IVA.') + ' El número va en la factura como documento de referencia.</p>' +
+      '<div class="fila"><div><label>Número de la orden de compra *</label><input id="roNum" value="' + esc(d.ocNumero || '') + '" placeholder="Ej: 4500012345"></div><div><label>Valor de la OC (opcional)</label><input id="roValor" type="number" min="0" placeholder="Como viene en la OC"></div></div>' +
+      '<div class="acciones der"><button id="roOk" class="ok">Guardar orden de compra</button></div><p id="roMsg"></p>', 640);
+    m.querySelector('#roOk').onclick = function () {
+      var bt = this, num = $('roNum').value.trim(), val = $('roValor').value;
+      if (!num) { $('roMsg').innerHTML = '<span class="error">Escriba el número de la orden de compra.</span>'; return; }
+      var seguir = function () {
+        bt.disabled = true;
+        api('adminRegistrarOC', d.id, { numero: num, valor: val }).then(function (nd) {
+          m.remove(); aviso('Orden de compra ' + num + ' registrada. Ya puede enviar la factura a Siigo.', 0, 'exito'); listo(nd);
+          // Si Siigo o el cliente la enviaron por correo a la cuenta del sistema, se adjunta sola.
+          api('adminOCDesdeCorreo', d.id).then(function (n2) { aviso('También se adjuntó el PDF de la OC desde el correo.', 0, 'exito'); listo(n2); }).catch(function () {});
+        }).catch(function (e) { $('roMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+      };
+      var v = Number(val);
+      if (val !== '' && Math.abs(v - d.total) > 1 && Math.abs(v - Math.round(d.total * 1.19)) > 1) {
+        return confirmar('El valor de la OC (' + pesos(v) + ') no coincide con lo liquidado (' + pesos(d.total) + ' + IVA = ' + pesos(Math.round(d.total * 1.19)) + '). Revise con el cliente o con Lucas antes de facturar.', 'Guardar así').then(function (si) { if (si) seguir(); });
+      }
+      seguir();
+    };
+  }
+
+  /** Escoger el producto de Siigo de los ítems que no lo tienen; se guarda el código y sigue la factura o la cotización. */
+  function modalProductosSiigo(d, r, alGuardar, textoBoton) {
     PRODUCTOS_SIIGO = r.productos || PRODUCTOS_SIIGO; listaProductosSiigo();
     var NOMBRES_CAT = { SERVICIO: 'servicio', MATERIAL: 'producto (material)', TRANSPORTE: 'servicio' };
     var m = modal('Producto de Siigo de cada ítem',
@@ -2188,7 +2233,7 @@
           '<input data-n="' + x.n + '" list="dlSiigo" placeholder="Código o nombre del producto en Siigo" value="' + esc(x.parecido || '') + '"' + (crear ? ' disabled' : '') + ' style="margin-top:8px">' +
           (x.parecido ? '<p class="gris" style="margin:4px 0 0">Ya hay un producto en Siigo con ese nombre: se usa ese.</p>' : '') + '</div>';
       }).join('') +
-      '<div class="acciones der"><button id="psOk">Guardar y enviar a Siigo</button></div><p id="psMsg"></p>', 680);
+      '<div class="acciones der"><button id="psOk">' + esc(textoBoton || 'Guardar y enviar a Siigo') + '</button></div><p id="psMsg"></p>', 680);
     // Si escribe el nombre en vez del código, se toma el producto cuyo nombre coincide.
     var resolver = function (v) {
       var p = productoSiigo(v); if (p) return p;
@@ -2213,7 +2258,7 @@
       bt.disabled = true; $('psMsg').innerHTML = codigos.some(function (c) { return c.crear; }) ? '<span class="gris">Creando los productos en Siigo…</span>' : '';
       api('adminCodigosSiigo', d.id, codigos).then(function (res) {
         PRODUCTOS_SIIGO = null; // el catálogo cambió
-        m.remove(); aviso((res.creados ? res.creados + ' producto(s) creado(s) en Siigo. ' : 'Productos guardados. ') + 'Enviando la factura…', 0, 'exito'); alGuardar();
+        m.remove(); aviso((res.creados ? res.creados + ' producto(s) creado(s) en Siigo. ' : 'Productos guardados. ') + 'Continuando…', 0, 'exito'); alGuardar();
       }).catch(function (e) { $('psMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
   }
@@ -2394,7 +2439,7 @@
   function vistaCobro() {
     var cont = pagina('Cobro y facturación');
     var tab = AD.tabCobro || 'EFECTIVO';
-    var TABS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['PENDIENTE', 'Pendientes por cobrar'], ['FACTURA', 'Factura electrónica'], ['POR_FACTURAR', 'Por facturar en Siigo'], ['COMPLETADAS', 'Completadas del mes']];
+    var TABS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['PENDIENTE', 'Pendientes por cobrar'], ['FACTURA', 'Factura electrónica'], ['ESPERANDO_OC', 'Esperando OC'], ['POR_FACTURAR', 'Por facturar en Siigo'], ['COMPLETADAS', 'Completadas del mes']];
     leer('adminListar', [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }], function (todas) {
       var mes = hoyISO(0).slice(0, 7);
       var grupos = {
@@ -2402,15 +2447,17 @@
         TRANSFERENCIA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'TRANSFERENCIA'; }),
         PENDIENTE: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'PENDIENTE'; }),
         FACTURA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'FACTURA'; }),
+        ESPERANDO_OC: todas.filter(function (o) { return o.esperandoOC; }),
         POR_FACTURAR: todas.filter(function (o) { return o.estado === 'POR_FACTURAR'; }),
         COMPLETADAS: todas.filter(function (o) { return o.estado === 'COMPLETADA' && String(o.completada).slice(0, 7) === mes; })
       };
       if (!AD.tabCobro) { var primera = TABS.filter(function (t) { return grupos[t[0]].length; })[0]; if (primera) tab = primera[0]; }
       var pintar = function () {
         cont.innerHTML = '<div class="pestanas">' + TABS.map(function (t) { return '<button data-t="' + t[0] + '" class="' + (t[0] === tab ? 'activo' : '') + '">' + t[1] + ' <span class="cuenta">' + grupos[t[0]].length + '</span></button>'; }).join('') + '</div>' +
-          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago.', FACTURA: 'Abra la orden y use "Pasar a facturar".', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
+          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
         $$('.pestanas button', cont).forEach(function (b) { b.onclick = function () { tab = AD.tabCobro = b.getAttribute('data-t'); pintar(); }; });
         var cols = [COL.numero, COL.cliente, COL.tipo, COL.cierre];
+        if (tab === 'ESPERANDO_OC') cols.push({ t: 'Cotización', k: 'cotizacion', fmt: function (o) { return o.cotizacion ? esc(o.cotizacion) : '<span class="gris">Sin crear</span>'; } });
         if (tab === 'POR_FACTURAR') cols.push({ t: 'Siigo', k: 'factura', fmt: function (o) { return o.siigoError ? '<span class="error">' + (/anulada|eliminada/.test(o.siigoError) ? 'Anulada en Siigo' : 'Error') + '</span>' : o.factura && !/^ENVIANDO/.test(o.factura) ? esc(o.factura) : '<span class="gris">Sin enviar</span>'; } });
         if (tab === 'COMPLETADAS') cols.push(COL.pago, { t: 'Recibido', k: 'valorRecibido', der: true, total: true, fmt: function (o) { return o.valorRecibido == null ? '' : pesos(o.valorRecibido); } });
         cols.push(COL.total);
@@ -2650,7 +2697,8 @@
       cont.innerHTML = '<div class="tarjeta"><dl class="datos">' + dato('ID', esc(c.id)) + dato('NIT / CC', esc(c.nit) + (c.dv ? '-' + esc(c.dv) : '') + ' ' + esc(c.tipoDocumento || '')) +
         dato('Tipo de cliente', esc(c.tipoCliente)) + dato('Estado', esc(c.estado)) + dato('Teléfono', c.telefono ? botonesContacto(c) : '') + dato('Correo', esc(c.email)) +
         dato('Dirección', esc([c.direccion, c.ciudad].filter(Boolean).join(', '))) +
-        dato('Requiere enviar permisos', c.requierePermisos === 'SI' ? '<span class="marca perm">Sí, por defecto</span>' : '') + '</dl>' +
+        dato('Requiere enviar permisos', c.requierePermisos === 'SI' ? '<span class="marca perm">Sí, por defecto</span>' : '') +
+        dato('Facturación', String(c.facturaConOc || '').toUpperCase() === 'SI' ? '<span class="marca conf">Con orden de compra</span>' : '') + '</dl>' +
         (c.obsInternas ? '<div class="nota-interna" style="margin-top:12px"><b>Observaciones internas · no salen en el soporte</b>' + esc(c.obsInternas) + '</div>' : '') + '</div>' +
         c.sedes.map(function (s, i) {
           return '<div class="tarjeta"><h2 style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + esc(s.nombre) + ' <span class="gris">' + esc(s.id) + '</span>' +
