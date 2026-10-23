@@ -1377,7 +1377,7 @@
           (puede('editar') ? ' · <a href="#" id="dCotQuitar" class="link-peligro">Quitar</a>' : '')) : '') +
         (d.oc ? dato('Orden de compra', '<b>' + esc(d.oc.numero) + '</b>' + (d.oc.tercero ? ' · ' + esc(d.oc.tercero) : '') + (d.oc.fecha ? ' · ' + esc(d.oc.fecha) : '') + (d.oc.valor != null ? ' · ' + pesos(d.oc.valor) : '') +
           (d.oc.archivoId ? ' · <a href="' + urlDrive(d.oc.archivoId) + '" target="_blank">Ver OC</a>' : ' · <span class="gris">sin documento</span>') +
-          (puede('editar') ? '<br><a href="#" id="dOcCorreo" style="font-weight:600">Traer del correo</a> · <label style="display:inline;margin:0;cursor:pointer;color:var(--primario);font-weight:600;text-transform:none;letter-spacing:0;font-size:inherit">' + (d.oc.archivoId ? 'Cambiar documento' : 'Adjuntar documento') + '<input type="file" id="dOcArchivo" accept="application/pdf,image/jpeg,image/png" style="display:none"></label> · <a href="#" id="dOcQuitar" class="link-peligro">Quitar</a>' : '')) : '') +
+          (puede('editar') || puede('cobrar') ? '<br><a href="#" id="dOcCorreo" style="font-weight:600">Traer del correo</a> · <label style="display:inline;margin:0;cursor:pointer;color:var(--primario);font-weight:600;text-transform:none;letter-spacing:0;font-size:inherit">' + (d.oc.archivoId ? 'Cambiar documento' : 'Adjuntar documento') + '<input type="file" id="dOcArchivo" accept="application/pdf,image/jpeg,image/png" style="display:none"></label>' + (puede('editar') ? ' · <a href="#" id="dOcQuitar" class="link-peligro">Quitar</a>' : '') : '')) : '') +
         '</dl>' + comparativo(d, d.items) + '</div>' : '') +
       tarjetaArchivo(d) +
       (d.jornadas.length > 1 || d.estado === 'EN_PAUSA' || (d.jornadas.length && d.estado === 'EN_CURSO') ? '<div class="tarjeta"><h2>Jornadas</h2>' + d.jornadas.map(function (j) {
@@ -2199,17 +2199,28 @@
     var m = modal('Orden de compra · ' + d.id,
       '<p class="gris" style="margin-top:0">' + esc(d.cliente) + ' factura con orden de compra. ' + (d.cotizacion ? 'Cotización ' + esc(d.cotizacion) + ' por ' + pesos(d.total) + ' + IVA.' : 'Liquidado: ' + pesos(d.total) + ' + IVA.') + ' El número va en la factura como documento de referencia.</p>' +
       '<div class="fila"><div><label>Número de la orden de compra *</label><input id="roNum" value="' + esc(d.ocNumero || '') + '" placeholder="Ej: 4500012345"></div><div><label>Valor de la OC (opcional)</label><input id="roValor" type="number" min="0" placeholder="Como viene en la OC"></div></div>' +
-      '<div class="acciones der"><button id="roOk" class="ok">Guardar orden de compra</button></div><p id="roMsg"></p>', 640);
-    m.querySelector('#roOk').onclick = function () {
-      var bt = this, num = $('roNum').value.trim(), val = $('roValor').value;
+      '<p class="gris" style="margin:0">Con <b>Traer del correo</b> la app busca el PDF de esa OC en el correo de la empresa y lo adjunta a la orden.</p>' +
+      '<div class="acciones der"><button id="roCorreo" class="sec">Guardar y traer del correo</button><button id="roOk" class="ok">Guardar orden de compra</button></div><p id="roMsg"></p>', 640);
+    var registrar = function (bt, delCorreo) {
+      var num = $('roNum').value.trim(), val = $('roValor').value;
       if (!num) { $('roMsg').innerHTML = '<span class="error">Escriba el número de la orden de compra.</span>'; return; }
       var seguir = function () {
-        bt.disabled = true;
+        $$('#roOk, #roCorreo', m).forEach(function (b) { b.disabled = true; });
         api('adminRegistrarOC', d.id, { numero: num, valor: val }).then(function (nd) {
-          m.remove(); aviso('Orden de compra ' + num + ' registrada. Ya puede enviar la factura a Siigo.', 0, 'exito'); listo(nd);
-          // Si Siigo o el cliente la enviaron por correo a la cuenta del sistema, se adjunta sola.
-          api('adminOCDesdeCorreo', d.id).then(function (n2) { aviso('También se adjuntó el PDF de la OC desde el correo.', 0, 'exito'); listo(n2); }).catch(function () {});
-        }).catch(function (e) { $('roMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+          listo(nd);
+          if (!delCorreo) {
+            m.remove(); aviso('Orden de compra ' + num + ' registrada. Ya puede enviar la factura a Siigo.', 0, 'exito');
+            // Si Siigo o el cliente la enviaron por correo a la cuenta del sistema, se adjunta sola.
+            api('adminOCDesdeCorreo', d.id).then(function (n2) { aviso('También se adjuntó el PDF de la OC desde el correo.', 0, 'exito'); listo(n2); }).catch(function () {});
+            return;
+          }
+          $('roMsg').innerHTML = '<span class="gris">Orden de compra registrada. Buscando el PDF en el correo…</span>';
+          api('adminOCDesdeCorreo', d.id).then(function (n2) {
+            m.remove(); aviso('Orden de compra ' + num + ' registrada y su PDF adjunto desde el correo.', 0, 'exito'); listo(n2);
+          }).catch(function (e) {
+            m.remove(); aviso('La OC ' + num + ' quedó registrada, pero no se trajo del correo: ' + e.message + ' Puede adjuntar el PDF desde la orden.', 0, 'error');
+          });
+        }).catch(function (e) { $('roMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; $$('#roOk, #roCorreo', m).forEach(function (b) { b.disabled = false; }); });
       };
       var v = Number(val);
       if (val !== '' && Math.abs(v - d.total) > 1 && Math.abs(v - Math.round(d.total * 1.19)) > 1) {
@@ -2217,6 +2228,8 @@
       }
       seguir();
     };
+    m.querySelector('#roOk').onclick = function () { registrar(this, false); };
+    m.querySelector('#roCorreo').onclick = function () { registrar(this, true); };
   }
 
   /** Escoger el producto de Siigo de los ítems que no lo tienen; se guarda el código y sigue la factura o la cotización. */
@@ -2449,9 +2462,10 @@
         EFECTIVO: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'EFECTIVO'; }),
         TRANSFERENCIA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'TRANSFERENCIA'; }),
         PENDIENTE: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'PENDIENTE'; }),
-        FACTURA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'FACTURA'; }),
+        // Las de clientes con orden de compra que aún no la tienen solo salen en Esperando OC.
+        FACTURA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'FACTURA' && !o.esperandoOC; }),
         ESPERANDO_OC: todas.filter(function (o) { return o.esperandoOC; }),
-        POR_FACTURAR: todas.filter(function (o) { return o.estado === 'POR_FACTURAR'; }),
+        POR_FACTURAR: todas.filter(function (o) { return o.estado === 'POR_FACTURAR' && !o.esperandoOC; }),
         COMPLETADAS: todas.filter(function (o) { return o.estado === 'COMPLETADA' && String(o.completada).slice(0, 7) === mes; })
       };
       if (!AD.tabCobro) { var primera = TABS.filter(function (t) { return grupos[t[0]].length; })[0]; if (primera) tab = primera[0]; }
