@@ -2194,6 +2194,11 @@
       .catch(function (e) { aviso(e.message, 0, 'error'); });
   }
 
+  /** El valor liquidado (sin IVA) coincide con otro que puede venir sin IVA o con IVA (cotizaciones guardadas antes de esta corrección). */
+  function mismoValor(liquidado, otro) {
+    return Math.abs(liquidado - otro) <= 1 || Math.abs(Math.round(liquidado * 1.19) - otro) <= 1;
+  }
+
   /** Cobro registra la orden de compra que envió el cliente; avisa si el valor no es el cotizado y busca el PDF en el correo. */
   function modalRegistrarOC(d, listo) {
     var m = modal('Orden de compra · ' + d.id,
@@ -2341,7 +2346,7 @@
   function alertaValores(d) {
     if (['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) < 0) return '';
     var t = [];
-    if (d.cotizacionTotal != null && d.total !== d.cotizacionTotal) t.push('El total liquidado (' + pesos(d.total) + ') es distinto de lo cotizado en ' + esc(d.cotizacion) + ' (' + pesos(d.cotizacionTotal) + ').');
+    if (d.cotizacionTotal != null && !mismoValor(d.total, d.cotizacionTotal)) t.push('El total liquidado (' + pesos(d.total) + ') es distinto de lo cotizado en ' + esc(d.cotizacion) + ' (' + pesos(d.cotizacionTotal) + ').');
     return t.length ? '<div class="nota-interna" style="margin-bottom:16px"><b>Revisar valores</b>' + t.join('<br>') + '</div>' : '';
   }
 
@@ -2379,7 +2384,7 @@
       var faltan = pago === 'FACTURA' ? itemsSinProducto(it.valor()) : [];
       var total = it.valor().reduce(function (a, i) { return a + Math.round(i.cant * i.valor); }, 0);
       var dif = [];
-      if (d.cotizacionTotal != null && total !== d.cotizacionTotal) dif.push('lo cotizado (' + pesos(d.cotizacionTotal) + ')');
+      if (d.cotizacionTotal != null && !mismoValor(total, d.cotizacionTotal)) dif.push('lo cotizado (' + pesos(d.cotizacionTotal) + ')');
       var seguir = function () {
         bt.disabled = true;
         api('adminLiquidar', d.id, { items: it.valor(), adicionales: $('lqAdic').value, formaPago: pago })
