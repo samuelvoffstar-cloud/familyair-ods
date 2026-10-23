@@ -220,6 +220,7 @@
   .con-boton > :first-child { flex: 1; }
   .items td { padding: 6px 8px; vertical-align: middle; }
   .items input, .items select { padding: 6px 8px; }
+  input.sin-siigo { border-color: var(--rojo); background: var(--rojo-claro); }
   .items .x { background: none; border: none; color: var(--rojo); font-size: 18px; padding: 2px 8px; }
   .totales { margin-left: auto; max-width: 320px; font-size: 14px; }
   .totales div { display: flex; justify-content: space-between; padding: 4px 0; }
@@ -1426,7 +1427,12 @@
       var bt = this;
       confirmar('Se creará la factura en Siigo por ' + pesos(d.total) + ' + IVA para ' + d.cliente + ', sin enviarla a la DIAN.', 'Enviar a Siigo').then(function (si) {
         if (!si) return;
-        var enviar = function () { ejecutar(bt, api('adminEnviarSiigo', d.id), 'Factura creada en Siigo. Revísela y termínela allá.'); };
+        var facturar = function () { ejecutar(bt, api('adminEnviarSiigo', d.id), 'Factura creada en Siigo. Revísela y termínela allá.'); };
+        // Si algún ítem no tiene producto de Siigo, se escoge antes de enviar (sin devolver la orden a liquidación).
+        var enviar = function () {
+          api('adminItemsSiigo', d.id).then(function (r) { if (r.faltan && r.faltan.length) modalProductosSiigo(d, r, facturar); else facturar(); })
+            .catch(function (e) { aviso(e.message, 0, 'error'); });
+        };
         // Si el cliente no existe en Siigo, primero se crea con los datos de la app y luego se envía la factura.
         api('adminClienteSiigo', d.id).then(function (c) { if (c.existe || !c.conectado) enviar(); else modalClienteSiigo(d, c, enviar); })
           .catch(function (e) { aviso(e.message, 0, 'error'); });
@@ -1540,6 +1546,29 @@
     };
   }
 
+  // ---------- Productos de Siigo: cada ítem que va en una factura necesita el código de un producto que exista allá ----------
+  var PRODUCTOS_SIIGO = null; // null = sin cargar; [] = Siigo sin conectar
+  function productosSiigo() {
+    if (PRODUCTOS_SIIGO) return Promise.resolve(PRODUCTOS_SIIGO);
+    return api('adminProductosSiigo').then(function (r) { PRODUCTOS_SIIGO = r.conectado ? r.productos : []; listaProductosSiigo(); return PRODUCTOS_SIIGO; })
+      .catch(function () { return []; });
+  }
+  /** Lista de sugerencias (datalist) para escribir el código o buscar el producto por nombre. */
+  function listaProductosSiigo() {
+    var dl = $('dlSiigo');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'dlSiigo'; document.body.appendChild(dl); }
+    dl.innerHTML = (PRODUCTOS_SIIGO || []).map(function (p) { return '<option value="' + esc(p.codigo) + '" label="' + esc(p.codigo + ' · ' + p.nombre) + '"></option>'; }).join('');
+  }
+  function productoSiigo(cod) {
+    var c = String(cod || '').trim().toUpperCase();
+    return (PRODUCTOS_SIIGO || []).filter(function (p) { return p.codigo.toUpperCase() === c; })[0];
+  }
+  /** Ítems sin un producto válido de Siigo. Sin catálogo cargado solo revisa que tengan código. */
+  function itemsSinProducto(items) {
+    var hay = PRODUCTOS_SIIGO && PRODUCTOS_SIIGO.length;
+    return items.filter(function (i) { return !String(i.cod || '').trim() || (hay && !productoSiigo(i.cod)); });
+  }
+
   // ---------- Editor de ítems (crear, editar y liquidar) ----------
   function editorItems(cont, items, getTarifa, getTipo) {
     var lista = (items || []).map(function (i) { return { cod: i.cod, desc: i.desc, cat: i.cat || 'SERVICIO', cant: i.cant, valor: i.valor }; });
@@ -1549,7 +1578,8 @@
       var sugeridas = AD.tarifas.filter(function (t) { return !tipo || !t.tipoServicio || t.tipoServicio === tipo; });
       cont.innerHTML = '<div class="tabla-scroll"><table class="items"><thead><tr><th style="width:120px">Código</th><th>Descripción</th><th style="width:140px">Categoría</th><th style="width:80px" class="der">Cant.</th><th style="width:140px" class="der">Valor unit.</th><th class="der" style="width:120px">Subtotal</th><th></th></tr></thead><tbody>' +
         lista.map(function (i, n) {
-          return '<tr data-n="' + n + '"><td><input data-c="cod" value="' + esc(i.cod) + '"></td><td><input data-c="desc" value="' + esc(i.desc) + '"></td>' +
+          var malo = PRODUCTOS_SIIGO && PRODUCTOS_SIIGO.length && !productoSiigo(i.cod);
+          return '<tr data-n="' + n + '"><td><input data-c="cod" list="dlSiigo" placeholder="Código Siigo" value="' + esc(i.cod) + '"' + (malo ? ' class="sin-siigo" title="' + (i.cod ? 'Este código no existe en Siigo' : 'Falta el código del producto en Siigo') + '"' : '') + '></td><td><input data-c="desc" value="' + esc(i.desc) + '"></td>' +
             '<td><select data-c="cat">' + AD.cat.categorias.map(function (c) { return '<option' + (c === i.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></td>' +
             '<td><input data-c="cant" type="number" min="0" step="1" value="' + esc(i.cant) + '"></td><td><input data-c="valor" type="number" min="0" step="1000" value="' + esc(i.valor) + '"></td>' +
             '<td class="der">' + pesos((Number(i.cant) || 0) * (Number(i.valor) || 0)) + '</td><td><button class="x" data-quitar title="Quitar">×</button></td></tr>';
@@ -1562,6 +1592,12 @@
         var n = Number(tr.getAttribute('data-n'));
         $$('[data-c]', tr).forEach(function (inp) {
           inp.oninput = inp.onchange = function () { lista[n][inp.getAttribute('data-c')] = inp.value; tr.children[5].textContent = pesos((Number(lista[n].cant) || 0) * (Number(lista[n].valor) || 0)); totales(); };
+          // Al escoger el producto de Siigo: código como lo tiene Siigo y, si falta, su nombre como descripción.
+          if (inp.getAttribute('data-c') === 'cod') inp.addEventListener('change', function () {
+            var p = productoSiigo(inp.value);
+            if (p) { lista[n].cod = inp.value = p.codigo; if (!String(lista[n].desc || '').trim()) lista[n].desc = tr.querySelector('[data-c="desc"]').value = p.nombre; }
+            inp.classList.toggle('sin-siigo', !!(PRODUCTOS_SIIGO && PRODUCTOS_SIIGO.length && !p));
+          });
         });
         tr.querySelector('[data-quitar]').onclick = function () { lista.splice(n, 1); pintar(); };
       });
@@ -2138,6 +2174,50 @@
     };
   }
 
+  /** Escoger el producto de Siigo de los ítems que no lo tienen; se guarda el código y se envía la factura. */
+  function modalProductosSiigo(d, r, alGuardar) {
+    PRODUCTOS_SIIGO = r.productos || PRODUCTOS_SIIGO; listaProductosSiigo();
+    var NOMBRES_CAT = { SERVICIO: 'servicio', MATERIAL: 'producto (material)', TRANSPORTE: 'servicio' };
+    var m = modal('Producto de Siigo de cada ítem',
+      '<p class="gris" style="margin-top:0">Siigo solo factura productos que existan allá. Escoja uno existente (código o nombre) o créelo en Siigo con la descripción del ítem. Descripción, cantidad y valor quedan como se liquidaron.</p>' +
+      (r.puedeCrear ? '' : '<p class="error">Para crear productos desde la app falta poner en las Propiedades del script SIIGO_GRUPO_SERVICIO y SIIGO_GRUPO_MATERIAL (los muestra el menú Family Air → Probar conexión con Siigo).</p>') +
+      r.faltan.map(function (x) {
+        var crear = r.puedeCrear && !x.parecido;
+        return '<div class="tarjeta" data-it="' + x.n + '" style="padding:12px;margin:8px 0"><b>' + esc(x.desc) + '</b>' + (x.cod ? ' <span class="error">(el código ' + esc(x.cod) + ' no existe en Siigo)</span>' : '') +
+          (r.puedeCrear ? '<label class="chk" style="margin-top:8px"><input type="checkbox" data-crear' + (crear ? ' checked' : '') + '> <span>Crear en Siigo como ' + NOMBRES_CAT[x.cat || 'SERVICIO'] + ' nuevo, con código automático</span></label>' : '') +
+          '<input data-n="' + x.n + '" list="dlSiigo" placeholder="Código o nombre del producto en Siigo" value="' + esc(x.parecido || '') + '"' + (crear ? ' disabled' : '') + ' style="margin-top:8px">' +
+          (x.parecido ? '<p class="gris" style="margin:4px 0 0">Ya hay un producto en Siigo con ese nombre: se usa ese.</p>' : '') + '</div>';
+      }).join('') +
+      '<div class="acciones der"><button id="psOk">Guardar y enviar a Siigo</button></div><p id="psMsg"></p>', 680);
+    // Si escribe el nombre en vez del código, se toma el producto cuyo nombre coincide.
+    var resolver = function (v) {
+      var p = productoSiigo(v); if (p) return p;
+      var t = plano(v).trim();
+      var l = (PRODUCTOS_SIIGO || []).filter(function (x) { return plano(x.nombre) === t || plano(x.codigo + ' · ' + x.nombre) === t; });
+      return l.length === 1 ? l[0] : null;
+    };
+    $$('[data-it]', m).forEach(function (caja) {
+      var inp = caja.querySelector('input[data-n]'), chk = caja.querySelector('[data-crear]');
+      inp.onchange = function () { var p = resolver(inp.value); if (p) inp.value = p.codigo; inp.classList.toggle('sin-siigo', !p); };
+      if (chk) chk.onchange = function () { inp.disabled = chk.checked; inp.classList.remove('sin-siigo'); if (!chk.checked) inp.focus(); };
+    });
+    $('psOk').onclick = function () {
+      var bt = this, codigos = [], malos = [];
+      $$('[data-it]', m).forEach(function (caja) {
+        var inp = caja.querySelector('input[data-n]'), chk = caja.querySelector('[data-crear]'), n = Number(inp.getAttribute('data-n'));
+        if (chk && chk.checked) return codigos.push({ n: n, crear: true });
+        var p = resolver(inp.value);
+        if (p) codigos.push({ n: n, cod: p.codigo }); else { malos.push(inp); inp.classList.add('sin-siigo'); }
+      });
+      if (malos.length) { $('psMsg').innerHTML = '<span class="error">Escoja un producto de Siigo para cada ítem' + (r.puedeCrear ? ' o márquelo para crearlo' : '') + '.</span>'; malos[0].focus(); return; }
+      bt.disabled = true; $('psMsg').innerHTML = codigos.some(function (c) { return c.crear; }) ? '<span class="gris">Creando los productos en Siigo…</span>' : '';
+      api('adminCodigosSiigo', d.id, codigos).then(function (res) {
+        PRODUCTOS_SIIGO = null; // el catálogo cambió
+        m.remove(); aviso((res.creados ? res.creados + ' producto(s) creado(s) en Siigo. ' : 'Productos guardados. ') + 'Enviando la factura…', 0, 'exito'); alGuardar();
+      }).catch(function (e) { $('psMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+    };
+  }
+
   // ---------- Liquidación, cobro, retorno ----------
   /**
    * Cotización y orden de compra junto a los ítems de la orden, con las diferencias contra la cotización
@@ -2225,6 +2305,7 @@
       });
     };
     var it = editorItems($('lqItems'), d.items.length ? d.items : deCotizacion(), function () { return d.tarifa; }, function () { return d.tipoServicio; });
+    productosSiigo().then(function (l) { if (l.length && document.body.contains(m)) it.repintar(); });
     if ($('lqDeCot')) $('lqDeCot').onclick = function () {
       confirmar('Los ítems se reemplazan por las líneas originales de la cotización ' + d.cotizacion + '.', 'Reemplazar').then(function (si) { if (si) { it.poner(deCotizacion()); if ($('lqComp')) $('lqComp').innerHTML = comparativo(d, it.valor()); } });
     };
@@ -2236,6 +2317,8 @@
     m.querySelector('#lqOk').onclick = function () {
       var bt = this, pago = valorOpcion('lqPago', m);
       if (!pago) { $('lqMsg').innerHTML = '<span class="error">Escoja la forma de pago.</span>'; return; }
+      // Factura electrónica con ítems libres (sin producto de Siigo): Cobro los crea en Siigo al facturar.
+      var faltan = pago === 'FACTURA' ? itemsSinProducto(it.valor()) : [];
       var total = it.valor().reduce(function (a, i) { return a + Math.round(i.cant * i.valor); }, 0);
       var dif = [];
       if (d.cotizacionTotal != null && total !== d.cotizacionTotal) dif.push('lo cotizado (' + pesos(d.cotizacionTotal) + ')');
@@ -2245,8 +2328,10 @@
           .then(function (nd) { m.remove(); aviso('Orden liquidada: pasa a cobro.', 0, 'exito'); listo(nd); })
           .catch(function (e) { $('lqMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
       };
-      if (!dif.length) return seguir();
-      confirmar('El total liquidado (' + pesos(total) + ') no coincide con ' + dif.join('') + '. Revise adicionales antes de liquidar.', 'Liquidar así').then(function (si) { if (si) seguir(); });
+      var avisoSiigo = faltan.length ? 'Estos ítems no tienen producto en Siigo: ' + faltan.map(function (i) { return i.desc || i.cod; }).join(', ') + '. Al facturar, Cobro los crea en Siigo con su descripción (o escoge uno que ya exista). ' : '';
+      if (!dif.length && !avisoSiigo) return seguir();
+      if (!dif.length) return confirmar(avisoSiigo, 'Liquidar').then(function (si) { if (si) seguir(); });
+      confirmar(avisoSiigo + 'El total liquidado (' + pesos(total) + ') no coincide con ' + dif.join('') + '. Revise adicionales antes de liquidar.', 'Liquidar así').then(function (si) { if (si) seguir(); });
     };
   }
 
