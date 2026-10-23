@@ -2440,8 +2440,11 @@
     var cont = pagina('Cobro y facturación');
     var tab = AD.tabCobro || 'EFECTIVO';
     var TABS = [['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['PENDIENTE', 'Pendientes por cobrar'], ['FACTURA', 'Factura electrónica'], ['ESPERANDO_OC', 'Esperando OC'], ['POR_FACTURAR', 'Por facturar en Siigo'], ['COMPLETADAS', 'Completadas del mes']];
-    leer('adminListar', [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }], function (todas) {
+    var filtro = [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }];
+    leer('adminListar', filtro, function (todas) {
       var mes = hoyISO(0).slice(0, 7);
+      // Después de una acción desde la bandeja, la lista se vuelve a pedir aunque se haya traído hace segundos.
+      var refrescar = function () { var v = VISTAS[claveVista('adminListar', filtro)]; if (v) v.t = 0; vistaCobro(); };
       var grupos = {
         EFECTIVO: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'EFECTIVO'; }),
         TRANSFERENCIA: todas.filter(function (o) { return o.estado === 'LIQUIDADA' && o.formaPago === 'TRANSFERENCIA'; }),
@@ -2457,11 +2460,29 @@
           '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
         $$('.pestanas button', cont).forEach(function (b) { b.onclick = function () { tab = AD.tabCobro = b.getAttribute('data-t'); pintar(); }; });
         var cols = [COL.numero, COL.cliente, COL.tipo, COL.cierre];
-        if (tab === 'ESPERANDO_OC') cols.push({ t: 'Cotización', k: 'cotizacion', fmt: function (o) { return o.cotizacion ? esc(o.cotizacion) : '<span class="gris">Sin crear</span>'; } });
+        // Esperando OC: la cotización y la OC se manejan desde la bandeja, sin abrir la orden.
+        if (tab === 'ESPERANDO_OC') cols.push({ t: 'Cotización', k: 'cotizacion', csv: function (o) { return o.cotizacion || ''; }, fmt: function (o) {
+          return o.cotizacion ? esc(o.cotizacion) + ' <button class="ok" data-oc="' + esc(o.id) + '" style="margin-left:8px;padding:6px 12px">Registrar OC</button>'
+            : '<button class="sec" data-cot="' + esc(o.id) + '" style="padding:6px 12px">Crear cotización en Siigo</button>';
+        } });
         if (tab === 'POR_FACTURAR') cols.push({ t: 'Siigo', k: 'factura', fmt: function (o) { return o.siigoError ? '<span class="error">' + (/anulada|eliminada/.test(o.siigoError) ? 'Anulada en Siigo' : 'Error') + '</span>' : o.factura && !/^ENVIANDO/.test(o.factura) ? esc(o.factura) : '<span class="gris">Sin enviar</span>'; } });
         if (tab === 'COMPLETADAS') cols.push(COL.pago, { t: 'Recibido', k: 'valorRecibido', der: true, total: true, fmt: function (o) { return o.valorRecibido == null ? '' : pesos(o.valorRecibido); } });
         cols.push(COL.total);
-        tablaSiigo($('t'), { filas: grupos[tab], descargar: 'cobro-' + tab.toLowerCase() + '.csv', vacio: 'No hay órdenes en este grupo.', alClic: function (o) { ir('orden/' + o.id); }, columnas: cols });
+        var deFila = function (id) { return grupos[tab].filter(function (o) { return o.id === id; })[0]; };
+        tablaSiigo($('t'), { filas: grupos[tab], descargar: 'cobro-' + tab.toLowerCase() + '.csv', vacio: 'No hay órdenes en este grupo.', alClic: function (o) { ir('orden/' + o.id); }, columnas: cols,
+          alPintar: function (t) {
+            $$('[data-cot]', t).forEach(function (bt) { bt.onclick = function () {
+              var o = deFila(bt.getAttribute('data-cot'));
+              confirmar('Se creará en Siigo la cotización de ' + o.id + ' para ' + o.cliente + ' por ' + pesos(o.total) + ' + IVA, con los ítems liquidados. Después envíela al cliente desde Siigo.', 'Crear cotización').then(function (si) {
+                if (si) prepararSiigo(o, function () {
+                  bt.disabled = true;
+                  api('adminCrearCotizacionSiigo', o.id).then(function (nd) { aviso('Cotización ' + (nd.cotizacion || '') + ' creada en Siigo. Envíela al cliente desde Siigo y espere su orden de compra.', 0, 'exito'); refrescar(); })
+                    .catch(function (e) { aviso(e.message, 0, 'error'); bt.disabled = false; });
+                }, 'Guardar y crear la cotización');
+              });
+            }; });
+            $$('[data-oc]', t).forEach(function (bt) { bt.onclick = function () { modalRegistrarOC(deFila(bt.getAttribute('data-oc')), refrescar); }; });
+          } });
       };
       pintar();
     }).catch(function (e) { errorEn(cont, e); });
