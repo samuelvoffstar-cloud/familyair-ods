@@ -1326,7 +1326,7 @@
       if (!d.cotizacionId) b('aCotSiigo', 'Crear cotización en Siigo', d.estado === 'POR_FACTURAR' ? 'ok' : 'sec');
       b('aRegOC', d.ocNumero ? 'Cambiar orden de compra' : 'Registrar orden de compra', d.ocNumero ? 'sec' : (d.cotizacionId ? 'ok' : 'sec'));
     }
-    if (d.estado === 'POR_FACTURAR' && puede('cobrar')) { if (!d.siigoId && !d.esperandoOC) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
+    if (d.estado === 'POR_FACTURAR' && puede('cobrar') && !d.esperandoOC) { if (!d.siigoId) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
     if (d.estado === 'COMPLETADA' && puede('retorno')) b('aRetorno', 'Retorno', 'sec');
     if (['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('soporte')) b('aSoporte', ICON.wa + ' Enviar soporte', d.estado === 'CERRADA_TECNICO' || d.soporteEnviado ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
