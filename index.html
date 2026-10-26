@@ -1844,7 +1844,9 @@
     function pintarSede(equiposSel) {
       var s = F.sedes[Number($('oSede').value)]; F.sede = s || null;
       if (!s) { $('oSedeInfo').textContent = ''; $('oEquipos').innerHTML = '<p class="gris">El cliente no tiene sedes. Agregue una con el botón +.</p>'; return; }
-      $('oSedeInfo').innerHTML = esc([s.direccion, s.barrio, s.ciudad].filter(Boolean).join(', ')) + (s.contacto ? '<br>Contacto: ' + esc(s.contacto) + ' ' + esc(s.telefono) : '');
+      $('oSedeInfo').innerHTML = esc([s.direccion, s.barrio, s.ciudad].filter(Boolean).join(', ')) + (s.contacto ? '<br>Contacto: ' + esc(s.contacto) + ' ' + esc(s.telefono) : '') +
+        (puede('clientes') ? ' <button class="link" type="button" id="oEditContacto">' + (s.contacto ? 'Editar dirección y contacto' : 'Agregar contacto') + '</button>' : '');
+      if ($('oEditContacto')) $('oEditContacto').onclick = function () { modalSede(F.cliente.id, function () { recargarCliente(); }, s); };
       var otraSede = F.sedeId !== s.id; F.sedeId = s.id;
       if (otraSede && !(primeraCarga && borrador)) {
         if (!editar || !$('oContacto').value) $('oContacto').value = s.contacto || '';
@@ -2747,7 +2749,8 @@
           return '<div class="tarjeta"><h2 style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + esc(s.nombre) + ' <span class="gris">' + esc(s.id) + '</span>' +
             (puede('clientes') ? '<button class="link" data-esede="' + i + '">Editar sede</button>' + (c.sedes.length > 1 ? '<button class="link link-peligro" data-dsede="' + i + '">Eliminar sede</button>' : '') + '<button class="link" data-neq="' + i + '">+ Equipo</button>' : '') +
             (puede('crear') ? '<button class="link" data-csede="' + i + '">Crear ODS en esta sede</button>' : '') + '</h2>' +
-            '<p style="margin-top:0">' + esc([s.direccion, s.barrio, s.ciudad].filter(Boolean).join(', ')) + (s.contacto ? '<br>Contacto: ' + esc(s.contacto) + ' ' + esc(s.telefono) : '') + '</p>' +
+            '<p style="margin-top:0">' + esc([s.direccion, s.barrio, s.ciudad].filter(Boolean).join(', ')) + (s.contacto ? '<br>Contacto: ' + esc(s.contacto) + ' ' + esc(s.telefono) : '') +
+            (puede('clientes') ? ' <button class="link" data-esede="' + i + '">' + (s.contacto ? 'Editar dirección y contacto' : 'Agregar contacto') + '</button>' : '') + '</p>' +
             (s.equipos.length ? '<table><thead><tr><th>Equipo</th><th class="ocultar-movil">Seriales</th><th class="ocultar-movil">Frecuencia</th><th>Último servicio</th><th></th></tr></thead><tbody>' + s.equipos.map(function (e, j) {
               return '<tr><td>' + esc(e.texto) + '</td><td class="ocultar-movil">' + [e.serial ? 'Evap. ' + esc(e.serial) : '', e.serialCond ? 'Cond. ' + esc(e.serialCond) : ''].filter(Boolean).join('<br>') + '</td><td class="ocultar-movil">' + (e.frecuencia ? 'Cada ' + esc(e.frecuencia) + ' meses' : '') + '</td><td>' + esc(e.ultimo) + '</td><td>' + (puede('clientes') ? '<span class="eq-acc"><button class="link" data-eeq="' + i + '|' + j + '">Editar</button><button class="link link-peligro" data-deq="' + i + '|' + j + '">Eliminar</button></span>' : '') + '</td></tr>';
             }).join('') + '</tbody></table>' : '<p class="gris">Sin equipos registrados.</p>') + '</div>';
