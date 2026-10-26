@@ -1360,7 +1360,7 @@
       dato('Equipos', d.equipos.map(esc).join('<br>') || '<span class="gris">Sin equipos</span>') + '</dl></div>' +
       '<div class="tarjeta"><h2>Servicio</h2><dl class="datos">' +
       dato('Tipo de orden', d.tipoOrden === 'GARANTIA' ? 'Garantía · caso <b>' + esc(d.numeroCaso) + '</b>' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro <span class="gris">(al revisarlo queda completado)</span>' : 'Orden de servicio') +
-      dato('Tipo de servicio', esc(NOMBRES_TIPO[d.tipoServicio] || d.tipoServicio)) + dato('Tarifa', esc(d.tarifa === 'EMPRESARIAL' ? 'Empresarial' : 'Plena')) +
+      dato('Tipo de servicio', esc(NOMBRES_TIPO[d.tipoServicio] || d.tipoServicio)) + dato('Tarifa', esc(nombreTarifa(d.tarifa))) +
       dato('Programada', esc(d.fechaProgramada || 'Sin fecha')) + dato('Técnico', d.tecnicoNombre ? esc(d.tecnicoNombre) + ((d.apoyoNombres || []).length ? ' <span class="gris">(responsable)</span>' : '') : '<span class="error">Sin asignar</span>') +
       ((d.apoyoNombres || []).length ? dato('Apoyo', esc(d.apoyoNombres.join(', '))) : '') +
       dato('Disponibilidad', d.pendDisponibilidad ? '<span class="marca conf">Pendiente por confirmar</span>' : 'Confirmada') +
@@ -1575,6 +1575,9 @@
     return items.filter(function (i) { return !String(i.cod || '').trim() || (hay && !productoSiigo(i.cod)); });
   }
 
+  // Hay clientes que no llevan etiqueta de tarifa: '' es "Sin tarifa" (los precios de la lista salen de la plena).
+  function nombreTarifa(t) { return t === 'EMPRESARIAL' ? 'Tarifa empresarial' : t === 'PLENA' ? 'Tarifa plena' : 'Sin tarifa'; }
+
   // ---------- Editor de ítems (crear, editar y liquidar) ----------
   function editorItems(cont, items, getTarifa, getTipo) {
     var lista = (items || []).map(function (i) { return { cod: i.cod, desc: i.desc, cat: i.cat || 'SERVICIO', cant: i.cant, valor: i.valor }; });
@@ -1654,7 +1657,7 @@
       '<label>Equipos a atender</label><div id="oEqTodosBox"></div><div id="oEquipos"></div>' + (puede('clientes') ? '<button class="link" id="oNuevoEq">+ Agregar equipo a esta sede</button>' : '') +
       '<div id="oSedesExtra"></div><button class="sec" id="oOtraSede" type="button" style="margin-top:10px">' + ICON.mas + ' Agregar otra sede a esta orden</button></div></div>' +
       '<div class="tarjeta" id="oServicioBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Servicio</h2><label>Tipo de servicio *</label>' + opciones('oTipo', AD.cat.tiposServicio, pre.tipoServicio || '', false, NOMBRES_TIPO) +
-      '<div id="oTarifaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><label>Tarifa</label>' + opciones('oTarifa', AD.cat.tarifas, pre.tarifa || 'PLENA', false, { PLENA: 'Tarifa plena', EMPRESARIAL: 'Tarifa empresarial' }) + '</div>' +
+      '<div id="oTarifaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><label>Tarifa</label>' + opciones('oTarifa', AD.cat.tarifas.concat(['']), pre.tarifa != null ? pre.tarifa : 'PLENA', false, { PLENA: 'Tarifa plena', EMPRESARIAL: 'Tarifa empresarial', '': 'Sin tarifa' }) + '</div>' +
       '<label>Falla según el cliente</label><textarea id="oFalla">' + esc(pre.falla || '') + '</textarea></div>' +
       '<div class="tarjeta" id="oCotBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno</span></h2><div class="fila dos"><div><label>Cotización Siigo</label><div class="con-boton"><input id="oCot" placeholder="Ej: C-1-25" value="' + esc(pre.cotizacion || '') + '"><button class="sec" id="oCotTraer" type="button">Traer de Siigo</button></div>' +
         '<p class="gris" id="oCotInfo" style="margin-top:4px">' + (pre.cotizacionTotal != null && pre.cotizacion ? 'Cotización ' + esc(pre.cotizacion) + ' · ' + esc(pre.cotizacionFecha || '') + ' · total ' + pesos(pre.cotizacionTotal) : 'Las líneas de la cotización pasan a los ítems al liquidar.') + '</p>' +
@@ -1678,7 +1681,7 @@
       '<div class="tarjeta" id="oFichaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Ficha técnica</h2><label class="chk"><input type="checkbox" id="oFichaOn"' + ((pre.fichas || []).length ? ' checked' : '') + '> Agregar ficha técnica (control de mantenimiento preventivo)</label>' +
       '<p class="gris">Llene lo que tenga; el técnico debe completarla en el sitio. Se crea una por cada equipo marcado.</p><div id="oFichas"></div></div>' +
       (editar && (pre.trabajo || pre.recibeNombre || pre.horaCierre) ? '<div class="tarjeta"><h2>Datos del cierre del técnico</h2><label>Estado del artefacto</label>' + opciones('oArt', AD.cat.estadoArtefacto, pre.estadoArtefacto || [], true) +
-        '<label>Trabajo realizado</label><textarea id="oTrabajo">' + esc(pre.trabajo || '') + '</textarea><label>Observaciones</label><textarea id="oObs">' + esc(pre.obs || '') + '</textarea>' +
+        '<label>Trabajo realizado y observaciones</label><textarea id="oTrabajo">' + esc([pre.trabajo, pre.obs].filter(Boolean).join('\n')) + '</textarea>' +
         '<div class="fila"><div><label>Recibe</label><input id="oRecibe" value="' + esc(pre.recibeNombre || '') + '"></div><div><label>Documento</label><input id="oRecibeDoc" value="' + esc(pre.recibeDoc || '') + '"></div></div></div>' : '') +
       '<div class="acciones der"><button class="sec" id="oCancelar">Cancelar</button><button id="oGuardar">' + (editar ? 'Guardar cambios' : 'Crear orden') + '</button></div><p id="oMsg" style="text-align:right"></p>';
     activarOpciones(cont);
@@ -1977,7 +1980,7 @@
       bt.disabled = true; $('oMsg').textContent = 'Guardando…';
       var p;
       if (editar) {
-        if ($('oTrabajo')) { datos.trabajo = $('oTrabajo').value; datos.obs = $('oObs').value; datos.recibeNombre = $('oRecibe').value; datos.recibeDoc = $('oRecibeDoc').value; datos.estadoArtefacto = valoresOpcion('oArt'); }
+        if ($('oTrabajo')) { datos.trabajo = $('oTrabajo').value; datos.obs = ''; datos.recibeNombre = $('oRecibe').value; datos.recibeDoc = $('oRecibeDoc').value; datos.estadoArtefacto = valoresOpcion('oArt'); }
         // Solo se envían los campos que cambiaron.
         var orig = {
           idCliente: pre.idCliente, idSede: pre.idSede, equipos: pre.equiposIds, tipoServicio: pre.tipoServicio, tarifa: pre.tarifa, falla: pre.falla || '',
@@ -2352,7 +2355,7 @@
 
   function modalLiquidar(d, listo) {
     var m = modal('Liquidar ' + d.id,
-      '<p class="gris">' + esc(d.cliente) + ' · ' + esc(NOMBRES_TIPO[d.tipoServicio] || '') + ' · Tarifa ' + esc(d.tarifa === 'EMPRESARIAL' ? 'empresarial' : 'plena') + '</p>' +
+      '<p class="gris">' + esc(d.cliente) + ' · ' + esc(NOMBRES_TIPO[d.tipoServicio] || '') + ' · ' + esc(nombreTarifa(d.tarifa)) + '</p>' +
       '<label>¿Se hizo algo adicional? ¿Queda algo extra por hacer?</label><textarea id="lqAdic">' + esc(d.adicionales || '') + '</textarea>' +
       '<h3>Ítems y precio final</h3>' + (d.cotizacionTotal != null || (d.oc && d.oc.valor != null) ? '<p class="gris">' + [d.cotizacionTotal != null ? 'Cotizado (' + esc(d.cotizacion) + '): ' + pesos(d.cotizacionTotal) : '', d.oc && d.oc.valor != null ? 'OC ' + esc(d.oc.numero) + ': ' + pesos(d.oc.valor) : ''].filter(Boolean).join(' · ') + '</p>' : '') + '<div id="lqItems"></div>' +
       ((d.cotizacionItems || []).length ? '<p style="margin:6px 0"><button class="sec" id="lqDeCot" type="button">Cargar líneas de la cotización ' + esc(d.cotizacion) + '</button></p>' : '') +
@@ -3313,8 +3316,7 @@
         // Servicio sin cobro: solo la nota de lo que se hizo; lo demás queda oculto.
         (sinCobro ? '<label>Nota de lo que se hizo *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea><div style="display:none">' : '') +
         '<label>Estado del artefacto *</label><div id="oArt">' + opciones('tArt', d.estadosArtefacto, borrador.estadoArtefacto || d.estadoArtefacto || [], true) + '</div>' +
-        (sinCobro ? '' : '<label>Trabajo realizado' + ((d.jornadas || []).length ? ' en esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea>') +
-        '<label>Observaciones / recomendaciones *</label><textarea id="oObs">' + esc(borrador.obs || '') + '</textarea>' +
+        (sinCobro ? '' : '<label>Trabajo realizado y observaciones' + ((d.jornadas || []).length ? ' de esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc([borrador.trabajo, borrador.obs].filter(Boolean).join('\n')) + '</textarea>') +
         '<label>Nombre de quien recibe *</label><input id="oRecibe" value="' + esc(borrador.recibeNombre || d.contacto || '') + '">' +
         '<label>Cédula de quien recibe *</label><input id="oDoc" inputmode="numeric" value="' + esc(borrador.recibeDoc || '') + '">' +
         '<label>¿Por dónde quiere recibir el soporte de la orden? *</label><div id="oEnvio">' + opciones('tEnvio', ['WHATSAPP', 'CORREO'], canal, false, { WHATSAPP: 'WhatsApp', CORREO: 'Correo' }) + '</div>' +
@@ -3340,7 +3342,7 @@
     activarOpciones($('oArt')); activarOpciones($('oEnvio'));
     $$('input[name="tEnvio"]').forEach(function (r) { r.addEventListener('change', function () { $('oDestino').value = d.envioSugerido[r.value] || ''; $('oDestino').inputMode = r.value === 'CORREO' ? 'email' : 'tel'; guardarBorrador(); }); });
     // Al escribir, el borrador se guarda medio segundo después de la última tecla (no en cada letra).
-    ['oTrabajo', 'oObs', 'oRecibe', 'oDoc', 'oDestino'].forEach(function (id) { $(id).addEventListener('input', guardarBorradorPronto); $(id).addEventListener('change', guardarBorrador); });
+    ['oTrabajo', 'oRecibe', 'oDoc', 'oDestino'].forEach(function (id) { $(id).addEventListener('input', guardarBorradorPronto); $(id).addEventListener('change', guardarBorrador); });
     $('oArt').addEventListener('change', guardarBorrador);
     if ($('oFichas')) {
       activarOpciones($('oFichas'));
@@ -3370,11 +3372,10 @@
       '<p class="gris" style="margin-top:0">Lo que haga hoy queda guardado como una jornada aparte. Cuando vuelva, toque "Retomar servicio".</p>' +
       '<label>Motivo de la pausa *</label><input id="pMotivo" placeholder="Ej: falta material, el cliente no tiene acceso">' +
       '<label>¿Cuándo se retoma?</label><input type="date" id="pRetoma" value="' + hoyISO(1) + '">' +
-      '<label>¿Qué se hizo hoy? *</label><textarea id="pTrabajo">' + esc($('oTrabajo').value) + '</textarea>' +
-      '<label>Observaciones</label><textarea id="pObs">' + esc($('oObs').value) + '</textarea>' +
+      '<label>¿Qué se hizo hoy? Trabajo y observaciones *</label><textarea id="pTrabajo">' + esc($('oTrabajo').value) + '</textarea>' +
       '<div class="acciones"><button id="pOk" class="btn-grande">Pausar servicio</button></div>');
     m.querySelector('#pOk').onclick = function () {
-      var datos = { motivo: $('pMotivo').value.trim(), retoma: $('pRetoma').value, trabajo: $('pTrabajo').value.trim(), obs: $('pObs').value.trim() };
+      var datos = { motivo: $('pMotivo').value.trim(), retoma: $('pRetoma').value, trabajo: $('pTrabajo').value.trim() };
       var mal = false;
       if (!datos.motivo) { marcarError($('pMotivo'), 'Escriba el motivo.'); mal = true; }
       if (!datos.trabajo) { marcarError($('pTrabajo'), 'Escriba qué se hizo hoy.'); mal = true; }
@@ -3524,7 +3525,7 @@
     esperaBorrador = null;
     if (!T.actual || !$('oTrabajo')) return;
     guardarLocal('fa_borrador_' + T.actual.id, {
-      trabajo: $('oTrabajo').value, obs: $('oObs').value, recibeNombre: $('oRecibe').value, recibeDoc: $('oDoc').value, estadoArtefacto: valoresOpcion('tArt'),
+      trabajo: $('oTrabajo').value, recibeNombre: $('oRecibe').value, recibeDoc: $('oDoc').value, estadoArtefacto: valoresOpcion('tArt'),
       envioCanal: valorOpcion('tEnvio'), envioDestino: $('oDestino').value, fichas: $('oFichas') ? leerFichas($('oFichas'), T.actual.fichaTareas) : []
     });
   }
@@ -3694,7 +3695,7 @@
   // ---------- Cierre ----------
   function cerrarOrden() {
     var d = T.actual;
-    var datos = { trabajo: $('oTrabajo').value.trim(), obs: $('oObs').value.trim(), recibeNombre: $('oRecibe').value.trim(), recibeDoc: $('oDoc').value.trim(), estadoArtefacto: valoresOpcion('tArt'),
+    var datos = { trabajo: $('oTrabajo').value.trim(), recibeNombre: $('oRecibe').value.trim(), recibeDoc: $('oDoc').value.trim(), estadoArtefacto: valoresOpcion('tArt'),
       aceptaCondiciones: $('oAcepta').checked, envioCanal: valorOpcion('tEnvio'), envioDestino: $('oDestino').value.trim(),
       fichas: $('oFichas') ? leerFichas($('oFichas'), d.fichaTareas) : [] };
     $('oMsg').innerHTML = '';
@@ -3710,7 +3711,6 @@
     if ($('oFichas') && validarFichas($('oFichas'), d.fichaCampos, d.fichaTareas)) hayError = true;
     if (!datos.estadoArtefacto.length) { marcarError($('oArt'), 'Marque el estado del artefacto.'); hayError = true; }
     if (!datos.trabajo) { marcarError($('oTrabajo'), 'Escriba el trabajo realizado.'); hayError = true; }
-    if (!datos.obs) { marcarError($('oObs'), 'Escriba las observaciones.'); hayError = true; }
     if (!datos.recibeNombre) { marcarError($('oRecibe'), 'Escriba quién recibe.'); hayError = true; }
     if (!datos.recibeDoc) { marcarError($('oDoc'), 'Escriba la cédula de quien recibe.'); hayError = true; }
     if (datos.envioCanal === 'CORREO' ? !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(datos.envioDestino) : datos.envioDestino.replace(/\D/g, '').length < 10) { marcarError($('oDestino'), datos.envioCanal === 'CORREO' ? 'Escriba un correo válido.' : 'Escriba un WhatsApp de 10 dígitos.'); hayError = true; }
