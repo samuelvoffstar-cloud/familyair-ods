@@ -3072,6 +3072,7 @@
       envios: function () { return tx('envios', 'readonly', function (s) { return s.getAll(); }).then(function (l) { return l || []; }).catch(function () { return memoria.envios.slice(); }); },
       agregar: function (e) { return tx('envios', 'readwrite', function (s) { return s.add(e); }).catch(function () { e.n = ++n; memoria.envios.push(e); return e.n; }); },
       actualizar: function (e) { return tx('envios', 'readwrite', function (s) { return s.put(e); }).catch(function () {}); },
+      borrar: function (k) { return tx('copia', 'readwrite', function (s) { return s.delete(k); }).catch(function () { delete memoria.copia[k]; }); },
       quitar: function (k) { return tx('envios', 'readwrite', function (s) { return s.delete(k); }).catch(function () { memoria.envios = memoria.envios.filter(function (x) { return x.n !== k; }); }); }
     };
   })();
@@ -3152,6 +3153,7 @@
       $$('.mini.pendiente[data-clave="' + e.clave + '"]').forEach(function (m) { m.classList.remove('pendiente'); });
       pintarCola();
     }
+    if (e.fn === 'tecCerrar') BD.leer(claveCopia('det', e.ods)).then(function (d) { ((d && d.fotos) || []).forEach(function (f) { BD.borrar('img_' + (f.clave || f.id)); }); });
     if (e.fn === 'tecCerrar') { borrarLocal('fa_borrador_' + e.ods); aviso('Servicio ' + e.ods + ' enviado a la oficina.', 0, 'exito'); }
   }
 
@@ -3412,7 +3414,7 @@
     var borradas = fotosPorBorrar(d.id);
     d.fotos = d.fotos.filter(function (f) { return borradas.indexOf(f.clave || f.id) < 0; });
     ['ANTES', 'DESPUES', 'EVIDENCIA'].forEach(function (tipo) {
-      d.fotos.filter(function (f) { return f.tipo === tipo && borradas.indexOf(f.clave || f.id) < 0; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id); });
+      d.fotos.filter(function (f) { return f.tipo === tipo && borradas.indexOf(f.clave || f.id) < 0; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id, f.id); });
       enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
       $('i' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
     });
@@ -3593,7 +3595,7 @@
   }
 
   /** Miniatura de una foto; "por" es quien la subió (se muestra cuando la orden la trabajan varios técnicos). */
-  function agregarMini(tipo, src, por, clavePendiente, ref) {
+  function agregarMini(tipo, src, por, clavePendiente, ref, fotoId) {
     var cont = $('f' + tipo); if (!cont) return;
     var m = document.createElement('div'); m.className = 'mini' + (clavePendiente ? ' pendiente' : '');
     if (clavePendiente) m.setAttribute('data-clave', clavePendiente);
@@ -3614,7 +3616,12 @@
         var iv = document.createElement('img'); iv.src = src; iv.alt = 'Video de evidencia'; iv.onerror = function () { iv.removeAttribute('src'); }; m.appendChild(iv);
       }
     } else {
-      var img = document.createElement('img'); img.src = src; img.alt = 'Foto ' + ({ ANTES: 'de antes', DESPUES: 'de después', EVIDENCIA: 'de evidencia' })[tipo]; m.appendChild(img);
+      var img = document.createElement('img'); img.alt = 'Foto ' + ({ ANTES: 'de antes', DESPUES: 'de después', EVIDENCIA: 'de evidencia' })[tipo]; m.appendChild(img);
+      // Foto ya enviada: la miniatura de Drive no carga en el celular (no tiene sesión en la cuenta del sistema),
+      // así que se usa la copia guardada en el celular o se trae del servidor.
+      if (fotoId && ref && T.actual) cargarFoto(img, T.actual.id, ref, src); else img.src = src;
+      m.style.cursor = 'zoom-in';
+      m.onclick = function () { verFoto(m, tipo, img); };
     }
     if (por) { var p = document.createElement('span'); p.className = 'por'; p.textContent = por; m.appendChild(p); }
     cont.appendChild(m);
@@ -3650,7 +3657,7 @@
           T.vistas.push(f.id);
           if (propias.indexOf(f.clave) >= 0) { d.fotos.push(f); return; } // la subió este celular: ya está en pantalla
           d.fotos.push(f);
-          if (f.tipo !== 'PLACA') agregarMini(f.tipo, miniDrive(f.id), f.por, null, f.clave || f.id);
+          if (f.tipo !== 'PLACA') agregarMini(f.tipo, miniDrive(f.id), f.por, null, f.clave || f.id, f.id);
         });
         // Fotos que otro técnico eliminó: salen de la pantalla.
         var enServidor = r.fotos.map(function (f) { return f.id; });
@@ -3707,11 +3714,30 @@
         encolar('tecBorrarFoto', d.id, [d.id, ref], { clave: 'borrar-' + ref, ref: ref });
       }
       d.fotos = d.fotos.filter(function (f) { return f.clave !== ref && f.id !== ref; });
+      BD.borrar('img_' + ref);
       if (m.parentNode) m.parentNode.removeChild(m);
       pintarCola();
       aviso(tipo === 'VIDEO' ? 'Video eliminado.' : 'Foto eliminada.', 0, 'exito');
     });
   }
+  /** Imagen de una foto ya enviada: primero la copia del celular; si no está, se pide al servidor y se guarda. */
+  function cargarFoto(img, ods, ref, respaldo) {
+    BD.leer('img_' + ref).then(function (u) {
+      if (u) { img.src = u; return; }
+      if (!navigator.onLine) { img.src = respaldo; return; }
+      apiTec('tecVerFoto', ods, ref).then(function (u2) { img.src = u2; BD.guardar('img_' + ref, u2); })
+        .catch(function () { img.src = respaldo; });
+    });
+  }
+  /** Foto en grande para revisarla antes de decidir si se elimina. */
+  function verFoto(m, tipo, img) {
+    if (!img.src) return;
+    var v = modal(({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia' })[tipo] || 'Foto',
+      '<img src="' + img.src + '" alt="' + esc(img.alt) + '" style="width:100%;max-height:70vh;object-fit:contain;border-radius:10px;background:#1f2a37">' +
+      (m.getAttribute('data-ref') ? '<div class="acciones"><button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button></div>' : ''), 720);
+    if (v.querySelector('#vfQuitar')) v.querySelector('#vfQuitar').onclick = function () { v.remove(); quitarFoto(m, tipo); };
+  }
+
   /** Fotos que este celular ya mandó a eliminar (para no volver a pintarlas mientras se envía la eliminación). */
   function fotosPorBorrar(id) { return enviosDe(id).filter(function (e) { return e.fn === 'tecBorrarFoto'; }).map(function (e) { return e.ref; }); }
 
@@ -3721,6 +3747,7 @@
     Array.prototype.forEach.call(files, function (f) {
       reducirImagen(f).then(function (dataUrl) {
         var clave = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        BD.guardar('img_' + clave, dataUrl);
         agregarMini(tipo, dataUrl, (d.apoyo || []).length ? 'Usted' : '', clave, clave);
         return encolar('tecSubirFoto', d.id, [d.id, tipo, dataUrl, clave], { tipo: tipo, clave: clave }).then(pintarCola);
       }).catch(function () { aviso('No se pudo leer una foto.'); });
