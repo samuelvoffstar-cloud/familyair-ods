@@ -239,6 +239,9 @@
   .fotos .mini.video img { background: #1f2a37; }
   .fotos .mini.video::before, .fotos a.video::before { content: '▶ Video'; position: absolute; right: 4px; top: 4px; z-index: 1; background: rgba(31,42,55,.85); color: #fff; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 1px 6px; }
   .fotos a.video { position: relative; display: inline-block; }
+  .fotos .mini .quitar, .fotos .foto-adm .quitar { position: absolute; top: 4px; right: 4px; z-index: 2; width: 30px; height: 30px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(31,42,55,.85); color: #fff; font-size: 20px; line-height: 30px; font-weight: 700; cursor: pointer; }
+  .fotos .mini.video::before { right: 38px; }
+  .fotos .foto-adm { position: relative; display: inline-block; }
   .fotos .mini.pendiente::after { content: 'Por enviar'; position: absolute; top: 4px; left: 4px; background: var(--ambar); color: #fff; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 1px 6px; }
   .red { display: none; padding: 9px 16px; font-size: 14px; font-weight: 600; line-height: 1.4; }
   .red.visible { display: block; }
@@ -1342,7 +1345,9 @@
       var f = d.fotos.filter(function (x) { return x.tipo === tipo; });
       return f.length ? '<h3>' + titulo + ' (' + f.length + ')</h3><div class="fotos">' + f.map(function (x) {
         var por = x.usuario ? ((AD.tecnicos.filter(function (t) { return t.usuario === x.usuario; })[0] || {}).nombre || x.usuario) : '';
-        return '<a href="' + urlDrive(x.id) + '" target="_blank"' + (tipo === 'VIDEO' ? ' class="video"' : '') + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="' + (tipo === 'VIDEO' ? 'Video de evidencia' : tipo) + '" loading="lazy"></a>';
+        var a = '<a href="' + urlDrive(x.id) + '" target="_blank"' + (tipo === 'VIDEO' ? ' class="video"' : '') + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="' + (tipo === 'VIDEO' ? 'Video de evidencia' : tipo) + '" loading="lazy"></a>';
+        // Quien edita la orden puede eliminar una foto que el técnico subió por error.
+        return puede('editar') && d.estado !== 'ANULADA' ? '<span class="foto-adm">' + a + '<button type="button" class="quitar" data-qfoto="' + esc(x.clave || x.id) + '" data-qtipo="' + tipo + '" aria-label="Eliminar ' + (tipo === 'VIDEO' ? 'video' : 'foto') + '">×</button></span>' : a;
       }).join('') + '</div>' : '';
     };
     var dato = function (t, v) { return v === '' || v == null ? '' : '<dt>' + esc(t) + '</dt><dd>' + v + '</dd>'; };
@@ -1410,6 +1415,9 @@
         dato('Factura Siigo', d.factura && !/^ENVIANDO/.test(d.factura) ? '<b>' + esc(d.factura) + '</b>' : '') +
         dato(/anulada|eliminada/.test(d.siigoError || '') ? 'Aviso de Siigo' : 'Error de Siigo', d.siigoError ? '<span class="error">' + esc(d.siigoError) + '</span>' : '') +
         dato('Completada', esc(d.completada)) + '</dl></div>' : '') +
+      ((d.seguimientoCobro || []).length || (puede('cobrar') && ['LIQUIDADA', 'POR_FACTURAR'].indexOf(d.estado) >= 0) ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">Seguimiento del cobro' +
+        (puede('cobrar') && ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 ? '<button class="sec" id="aSeguimiento" style="padding:6px 12px">Anotar seguimiento</button>' : '') + '</h2>' +
+        htmlSeguimiento(d.seguimientoCobro) + '</div>' : '') +
       (d.motivoRetorno || d.motivoAnulacion ? '<div class="tarjeta"><dl class="datos">' + dato('Retornos', d.retornos ? String(d.retornos) : '') + dato('Motivo del último retorno', esc(d.motivoRetorno)) + dato('Motivo de anulación', esc(d.motivoAnulacion)) + '</dl></div>' : '') +
       '<div class="rejilla"><div id="dHist"></div><div id="dCambios"></div></div>';
 
@@ -1444,6 +1452,16 @@
       });
     });
     accion('aRegOC', function () { modalRegistrarOC(d, function (nd) { pintarDetalle(cont, nd); }); });
+    $$('[data-qfoto]', cont).forEach(function (bt) {
+      bt.onclick = function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var video = bt.getAttribute('data-qtipo') === 'VIDEO';
+        confirmar('Se elimina ' + (video ? 'este video' : 'esta foto') + ' de la orden ' + d.id + '. El archivo queda 30 días en la papelera de Drive.', 'Eliminar', true).then(function (si) {
+          if (si) ejecutar(bt, api('adminBorrarFoto', d.id, bt.getAttribute('data-qfoto')), video ? 'Video eliminado.' : 'Foto eliminada.');
+        });
+      };
+    });
+    accion('aSeguimiento', function () { modalSeguimiento(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aFacturaOk', function () {
       var m = modal('Factura terminada', '<p>Confirme que la factura quedó terminada en Siigo. La orden pasa a <b>Completada</b>.</p><label>Número de factura de Siigo</label><input id="mFact" value="' + esc(d.factura && !/^ENVIANDO/.test(d.factura) ? d.factura : '') + '" placeholder="Ej: FV-1-2345"><div class="acciones der"><button id="mOk" class="ok">Completar orden</button></div><p id="mMsg"></p>', 480);
       m.querySelector('#mOk').onclick = function () { var bt = this; bt.disabled = true; api('adminFacturaTerminada', d.id, $('mFact').value).then(function (nd) { m.remove(); aviso('Orden completada.', 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { $('mMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; }); };
@@ -1573,6 +1591,27 @@
   function itemsSinProducto(items) {
     var hay = PRODUCTOS_SIIGO && PRODUCTOS_SIIGO.length;
     return items.filter(function (i) { return !String(i.cod || '').trim() || (hay && !productoSiigo(i.cod)); });
+  }
+
+  // ---------- Seguimiento del cobro (notas de Cobro sobre un pago pendiente) ----------
+  function htmlSeguimiento(lista) {
+    lista = (lista || []).slice().reverse();
+    if (!lista.length) return '<p class="gris" style="margin:0">Sin seguimiento. Anote cuándo se le escribió al cliente y qué respondió.</p>';
+    return '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px">' + lista.map(function (x) {
+      return '<li style="border-left:3px solid var(--borde);padding-left:10px"><span class="gris">' + esc(String(x.fecha).slice(0, 16)) + ' · ' + esc(x.nombre || x.usuario) + '</span><br>' + esc(x.texto).replace(/\n/g, '<br>') + '</li>';
+    }).join('') + '</ul>';
+  }
+  function modalSeguimiento(d, listo) {
+    var m = modal('Seguimiento del cobro · ' + d.id, '<p class="gris" style="margin-top:0">' + esc(d.cliente) + ' · ' + pesos(d.total) + '</p>' +
+      '<label>Nueva nota</label><textarea id="sgTexto" placeholder="Ej: Se le escribió por WhatsApp para recordar el pago; el cliente no responde."></textarea>' +
+      '<div class="acciones der"><button id="sgOk">Guardar nota</button></div><p id="sgMsg"></p><h3>Notas anteriores</h3>' + htmlSeguimiento(d.seguimientoCobro), 620);
+    m.querySelector('#sgOk').onclick = function () {
+      var bt = this, t = $('sgTexto').value.trim();
+      if (!t) { marcarError($('sgTexto'), 'Escriba la nota.'); return; }
+      bt.disabled = true;
+      api('adminSeguimientoCobro', d.id, t).then(function (nd) { m.remove(); aviso('Seguimiento guardado en ' + d.id + '.', 0, 'exito'); listo(nd); })
+        .catch(function (e) { $('sgMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+    };
   }
 
   // Hay clientes que no llevan etiqueta de tarifa: '' es "Sin tarifa" (los precios de la lista salen de la plena).
@@ -2481,7 +2520,7 @@
       if (!AD.tabCobro) { var primera = TABS.filter(function (t) { return grupos[t[0]].length; })[0]; if (primera) tab = primera[0]; }
       var pintar = function () {
         cont.innerHTML = '<div class="pestanas">' + TABS.map(function (t) { return '<button data-t="' + t[0] + '" class="' + (t[0] === tab ? 'activo' : '') + '">' + t[1] + ' <span class="cuenta">' + grupos[t[0]].length + '</span></button>'; }).join('') + '</div>' +
-          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
+          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago. Con Anotar deje el seguimiento: cuándo se le escribió y qué respondió.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
         $$('.pestanas button', cont).forEach(function (b) { b.onclick = function () { tab = AD.tabCobro = b.getAttribute('data-t'); pintar(); }; });
         var cols = [COL.numero, COL.cliente, COL.tipo, COL.cierre];
         // Esperando OC: la cotización y la OC se manejan desde la bandeja, sin abrir la orden.
@@ -2489,12 +2528,21 @@
           return o.cotizacion ? esc(o.cotizacion) + ' <button class="ok" data-oc="' + esc(o.id) + '" style="margin-left:8px;padding:6px 12px">Registrar OC</button>'
             : '<button class="sec" data-cot="' + esc(o.id) + '" style="padding:6px 12px">Crear cotización en Siigo</button>';
         } });
+        // Pendientes por cobrar: la última nota de seguimiento (cuándo se le escribió y qué dijo) y el botón para anotar.
+        if (tab === 'PENDIENTE') cols.push({ t: 'Seguimiento', k: 'seguimiento', csv: function (o) { return o.seguimiento ? o.seguimiento.fecha + ' · ' + o.seguimiento.texto : ''; }, fmt: function (o) {
+          return (o.seguimiento ? '<div style="max-width:340px;white-space:normal"><span class="gris">' + esc(String(o.seguimiento.fecha).slice(0, 16)) + ' · ' + esc(o.seguimiento.nombre) + '</span><br>' + esc(o.seguimiento.texto) + '</div>' : '<span class="gris">Sin seguimiento</span>') +
+            ' <button class="sec" data-seg="' + esc(o.id) + '" style="padding:6px 12px;margin-top:4px">Anotar</button>';
+        } });
         if (tab === 'POR_FACTURAR') cols.push({ t: 'Siigo', k: 'factura', fmt: function (o) { return o.siigoError ? '<span class="error">' + (/anulada|eliminada/.test(o.siigoError) ? 'Anulada en Siigo' : 'Error') + '</span>' : o.factura && !/^ENVIANDO/.test(o.factura) ? esc(o.factura) : '<span class="gris">Sin enviar</span>'; } });
         if (tab === 'COMPLETADAS') cols.push(COL.pago, { t: 'Recibido', k: 'valorRecibido', der: true, total: true, fmt: function (o) { return o.valorRecibido == null ? '' : pesos(o.valorRecibido); } });
         cols.push(COL.total);
         var deFila = function (id) { return grupos[tab].filter(function (o) { return o.id === id; })[0]; };
         tablaSiigo($('t'), { filas: grupos[tab], descargar: 'cobro-' + tab.toLowerCase() + '.csv', vacio: 'No hay órdenes en este grupo.', alClic: function (o) { ir('orden/' + o.id); }, columnas: cols,
           alPintar: function (t) {
+            $$('[data-seg]', t).forEach(function (bt) { bt.onclick = function (ev) {
+              ev.stopPropagation(); bt.disabled = true;
+              api('adminDetalle', bt.getAttribute('data-seg')).then(function (d) { bt.disabled = false; modalSeguimiento(d, refrescar); }).catch(function (e) { bt.disabled = false; aviso(e.message, 0, 'error'); });
+            }; });
             $$('[data-cot]', t).forEach(function (bt) { bt.onclick = function () {
               var o = deFila(bt.getAttribute('data-cot'));
               confirmar('Se creará en Siigo la cotización de ' + o.id + ' para ' + o.cliente + ' por ' + pesos(o.total) + ' + IVA, con los ítems liquidados. Después envíela al cliente desde Siigo.', 'Crear cotización').then(function (si) {
@@ -3070,9 +3118,12 @@
     var siguiente = function () {
       var e = lista.shift();
       if (!e) { enviando = false; pintarRed(); if (!T.actual && $('tRefrescar')) refrescarLista(); return; }
+      if (T.pend.indexOf(e) < 0) return siguiente(); // se quitó de la cola (foto eliminada antes de enviarse)
+      e.enCurso = true;
       (e.fn === 'tecSubirVideo' ? subirVideo(e) : apiTec.apply(null, [e.fn].concat(e.args))).then(function (r) {
         return BD.quitar(e.n).then(function () { T.pend = T.pend.filter(function (x) { return x !== e; }); alEnviar(e, r); pintarRed(); siguiente(); });
       }).catch(function (err) {
+        e.enCurso = false;
         if (esRed(err) || /SESION_VENCIDA/.test(err.message)) {
           enviando = false; T.sesionVencida = /SESION_VENCIDA/.test(err.message); pintarRed();
           return;
@@ -3091,6 +3142,7 @@
       if (!d) return;
       if ((e.fn === 'tecSubirFoto' || e.fn === 'tecSubirVideo') && r) d.fotos.push({ tipo: e.tipo, id: r, clave: e.clave, usuario: SES.usuario, por: SES.nombre });
       if (e.fn === 'tecGuardarEquipo' && r) d.equiposDetalle = r;
+      if (e.fn === 'tecBorrarFoto') d.fotos = (d.fotos || []).filter(function (f) { return f.clave !== e.ref && f.id !== e.ref; });
       if ({ tecIniciar: 1, tecReanudar: 1, tecPausar: 1, tecCerrar: 1 }[e.fn]) d.estado = r || d.estado;
       BD.guardar(clave, d);
     });
@@ -3120,7 +3172,7 @@
 
   function modalErrores() {
     var lista = misEnvios().filter(function (e) { return e.estado === 'error'; });
-    var nombre = { tecIniciar: 'Iniciar', tecSubirFoto: 'Foto', tecSubirVideo: 'Video', tecPausar: 'Pausa', tecReanudar: 'Retomar', tecCerrar: 'Cierre', tecGuardarEquipo: 'Equipo' };
+    var nombre = { tecIniciar: 'Iniciar', tecSubirFoto: 'Foto', tecSubirVideo: 'Video', tecPausar: 'Pausa', tecReanudar: 'Retomar', tecCerrar: 'Cierre', tecGuardarEquipo: 'Equipo', tecBorrarFoto: 'Eliminar foto' };
     var m = modal('Envíos con error', '<p class="gris" style="margin-top:0">El servidor no aceptó estos envíos. Corrija lo que indica y reintente, o descártelos.</p>' + lista.map(function (e, i) {
       return '<div class="tarjeta" style="padding:10px 12px"><b>' + esc(e.ods) + ' · ' + esc(nombre[e.fn] || e.fn) + '</b><br><span class="error">' + esc(e.error) + '</span>' +
         '<div class="acciones"><button class="sec" data-reint="' + i + '">Reintentar</button><button class="sec peligro" data-desc="' + i + '">Descartar</button></div></div>';
@@ -3317,17 +3369,20 @@
         '<div class="tarjeta"><h2>Cierre del servicio</h2>' +
         (d.estado === 'EN_CURSO' ? '<button class="sec" id="oPausar" style="width:100%;margin-bottom:6px">Pausar servicio (continúa otro día)</button>' : '') +
         // Servicio sin cobro: solo la nota de lo que se hizo; lo demás queda oculto.
-        (sinCobro ? '<label>Nota de lo que se hizo *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || '') + '</textarea><div style="display:none">' : '') +
+        (sinCobro ? '<label>Nota de lo que se hizo *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || (d.devuelta ? d.trabajo : '') || '') + '</textarea><div style="display:none">' : '') +
         '<label>Estado del artefacto *</label><div id="oArt">' + opciones('tArt', d.estadosArtefacto, borrador.estadoArtefacto || d.estadoArtefacto || [], true) + '</div>' +
-        (sinCobro ? '' : '<label>Trabajo realizado y observaciones' + ((d.jornadas || []).length ? ' de esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc([borrador.trabajo, borrador.obs].filter(Boolean).join('\n')) + '</textarea>') +
-        '<label>Nombre de quien recibe *</label><input id="oRecibe" value="' + esc(borrador.recibeNombre || d.contacto || '') + '">' +
-        '<label>Cédula de quien recibe *</label><input id="oDoc" inputmode="numeric" value="' + esc(borrador.recibeDoc || '') + '">' +
+        (sinCobro ? '' : '<label>Trabajo realizado y observaciones' + ((d.jornadas || []).length ? ' de esta jornada' : '') + ' *</label><textarea id="oTrabajo">' + esc(borrador.trabajo || borrador.obs ? [borrador.trabajo, borrador.obs].filter(Boolean).join('\n') : (d.devuelta ? d.trabajo || '' : '')) + '</textarea>') +
+        '<label>Nombre de quien recibe *</label><input id="oRecibe" value="' + esc(borrador.recibeNombre || (d.devuelta && d.recibeNombre) || d.contacto || '') + '">' +
+        '<label>Cédula de quien recibe *</label><input id="oDoc" inputmode="numeric" value="' + esc(borrador.recibeDoc || (d.devuelta && d.recibeDoc) || '') + '">' +
         '<label>¿Por dónde quiere recibir el soporte de la orden? *</label><div id="oEnvio">' + opciones('tEnvio', ['WHATSAPP', 'CORREO'], canal, false, { WHATSAPP: 'WhatsApp', CORREO: 'Correo' }) + '</div>' +
         '<input id="oDestino" style="margin-top:8px" value="' + esc(borrador.envioDestino || d.envioDestino || d.envioSugerido[canal] || '') + '" placeholder="Número de WhatsApp o correo">' +
         '<label>Condiciones generales</label><div class="condiciones">' + d.condiciones.map(function (c) { return '<p>' + esc(c) + '</p>'; }).join('') + '</div>' +
-        '<label class="chk"><input type="checkbox" id="oAcepta"> Quien recibe leyó y acepta las condiciones generales y autoriza el tratamiento de sus datos personales</label>' +
-        '<label>Firma de quien recibe *</label><canvas class="firma" id="oFirma"></canvas>' +
-        '<div class="acciones"><button class="sec" id="oBorrarFirma">Borrar firma</button></div>' + (sinCobro ? '</div>' : '') +
+        '<label class="chk"><input type="checkbox" id="oAcepta"' + (d.devuelta ? ' checked' : '') + '> Quien recibe leyó y acepta las condiciones generales y autoriza el tratamiento de sus datos personales</label>' +
+        '<label>Firma de quien recibe *</label>' +
+        // Orden devuelta por la oficina: se conserva la firma que ya se había tomado, salvo que se tome otra.
+        (d.devuelta && d.firmaId ? '<div id="oFirmaPrevia"><img src="' + miniDrive(d.firmaId) + '" alt="Firma tomada en el cierre anterior" style="max-width:100%;height:150px;object-fit:contain;border:1px solid var(--borde);border-radius:10px;background:#fff"><p class="gris" style="margin:4px 0">Firma tomada en el cierre anterior. Se conserva.</p><button class="sec" id="oFirmaNueva" type="button">Tomar la firma de nuevo</button></div>' : '') +
+        '<div id="oFirmaBox"' + (d.devuelta && d.firmaId ? ' style="display:none"' : '') + '><canvas class="firma" id="oFirma"></canvas>' +
+        '<div class="acciones"><button class="sec" id="oBorrarFirma">Borrar firma</button></div></div>' + (sinCobro ? '</div>' : '') +
         '<div class="acciones"><button id="oCerrar" class="btn-grande ok">Completar servicio</button></div><p id="oMsg"></p></div>' : '');
 
     $('oVolver').onclick = cargarMisOrdenes;
@@ -3354,15 +3409,19 @@
         b.onclick = function () { var p = b.getAttribute('data-esc').split('|'); T.fichaDestino = { parte: p[0], i: p[1] }; $('iPlaca').click(); };
       });
     }
+    var borradas = fotosPorBorrar(d.id);
+    d.fotos = d.fotos.filter(function (f) { return borradas.indexOf(f.clave || f.id) < 0; });
     ['ANTES', 'DESPUES', 'EVIDENCIA'].forEach(function (tipo) {
-      d.fotos.filter(function (f) { return f.tipo === tipo; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : ''); });
-      enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave); });
+      d.fotos.filter(function (f) { return f.tipo === tipo && borradas.indexOf(f.clave || f.id) < 0; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id); });
+      enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
       $('i' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
     });
-    d.fotos.filter(function (f) { return f.tipo === 'VIDEO'; }).forEach(function (f) { agregarMini('VIDEO', miniDrive(f.id), (d.apoyo || []).length ? f.por : ''); });
-    enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirVideo'; }).forEach(function (e) { agregarMini('VIDEO', urlLocal(e.blob), (d.apoyo || []).length ? 'Usted' : '', e.clave); });
+    d.fotos.filter(function (f) { return f.tipo === 'VIDEO'; }).forEach(function (f) { agregarMini('VIDEO', miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id); });
+    enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirVideo'; }).forEach(function (e) { agregarMini('VIDEO', urlLocal(e.blob), (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
     $('iVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
     $('tEqNuevo').onclick = function () { T.placaEquipo = null; T.fichaDestino = null; modalPlaca(null, null); };
+    T.firmaPrevia = !!(d.devuelta && d.firmaId);
+    if ($('oFirmaNueva')) $('oFirmaNueva').onclick = function () { T.firmaPrevia = false; $('oFirmaPrevia').style.display = 'none'; $('oFirmaBox').style.display = ''; T.firma = prepararFirma($('oFirma')); $('oBorrarFirma').onclick = T.firma.limpiar; };
     T.firma = prepararFirma($('oFirma'));
     $('oBorrarFirma').onclick = T.firma.limpiar;
     $('oCerrar').onclick = cerrarOrden;
@@ -3534,10 +3593,18 @@
   }
 
   /** Miniatura de una foto; "por" es quien la subió (se muestra cuando la orden la trabajan varios técnicos). */
-  function agregarMini(tipo, src, por, clavePendiente) {
+  function agregarMini(tipo, src, por, clavePendiente, ref) {
     var cont = $('f' + tipo); if (!cont) return;
     var m = document.createElement('div'); m.className = 'mini' + (clavePendiente ? ' pendiente' : '');
     if (clavePendiente) m.setAttribute('data-clave', clavePendiente);
+    if (ref) {
+      // Botón para eliminar la foto o el video si el técnico se equivocó (mientras la orden está abierta).
+      m.setAttribute('data-ref', ref);
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'quitar'; x.textContent = '×';
+      x.setAttribute('aria-label', 'Eliminar ' + (tipo === 'VIDEO' ? 'video' : 'foto'));
+      x.onclick = function (ev) { ev.stopPropagation(); quitarFoto(m, tipo); };
+      m.appendChild(x);
+    }
     if (tipo === 'VIDEO') {
       // Video: el que está en el celular se ve con su primer cuadro; el que ya está en Drive, con la miniatura de Drive.
       m.className += ' video';
@@ -3583,7 +3650,14 @@
           T.vistas.push(f.id);
           if (propias.indexOf(f.clave) >= 0) { d.fotos.push(f); return; } // la subió este celular: ya está en pantalla
           d.fotos.push(f);
-          if (f.tipo !== 'PLACA') agregarMini(f.tipo, miniDrive(f.id), f.por);
+          if (f.tipo !== 'PLACA') agregarMini(f.tipo, miniDrive(f.id), f.por, null, f.clave || f.id);
+        });
+        // Fotos que otro técnico eliminó: salen de la pantalla.
+        var enServidor = r.fotos.map(function (f) { return f.id; });
+        d.fotos = d.fotos.filter(function (f) {
+          if (!f.id || enServidor.indexOf(f.id) >= 0) return true;
+          $$('.mini[data-ref="' + (f.clave || f.id) + '"]').forEach(function (m) { m.parentNode.removeChild(m); });
+          return false;
         });
         var eq = JSON.stringify(r.equiposDetalle || []);
         if (eq !== equipos) { equipos = eq; d.equiposDetalle = r.equiposDetalle; pintarEquipos(r.equiposDetalle, false); }
@@ -3615,13 +3689,39 @@
     });
   }
 
+  /**
+   * Elimina una foto o video de Evidencias. Si todavía no se había enviado, se saca de la cola del celular;
+   * si ya está en el servidor, se encola la eliminación (sin señal se envía cuando vuelva).
+   */
+  function quitarFoto(m, tipo) {
+    var d = T.actual, ref = m.getAttribute('data-ref');
+    if (!d || !ref) return;
+    confirmar('Se elimina ' + (tipo === 'VIDEO' ? 'este video' : 'esta foto') + ' de la orden.', 'Eliminar', true).then(function (si) {
+      if (!si) return;
+      var env = enviosDe(d.id).filter(function (e) { return (e.fn === 'tecSubirFoto' || e.fn === 'tecSubirVideo') && e.clave === ref; })[0];
+      if (env && !env.enCurso) {
+        T.pend = T.pend.filter(function (x) { return x !== env; });
+        if (env.n) BD.quitar(env.n);
+        pintarRed();
+      } else {
+        encolar('tecBorrarFoto', d.id, [d.id, ref], { clave: 'borrar-' + ref, ref: ref });
+      }
+      d.fotos = d.fotos.filter(function (f) { return f.clave !== ref && f.id !== ref; });
+      if (m.parentNode) m.parentNode.removeChild(m);
+      pintarCola();
+      aviso(tipo === 'VIDEO' ? 'Video eliminado.' : 'Foto eliminada.', 0, 'exito');
+    });
+  }
+  /** Fotos que este celular ya mandó a eliminar (para no volver a pintarlas mientras se envía la eliminación). */
+  function fotosPorBorrar(id) { return enviosDe(id).filter(function (e) { return e.fn === 'tecBorrarFoto'; }).map(function (e) { return e.ref; }); }
+
   /** Cada foto queda guardada en el celular y se sube en orden; sin señal espera y se reintenta sola. */
   function encolarFotos(tipo, files) {
     var d = T.actual;
     Array.prototype.forEach.call(files, function (f) {
       reducirImagen(f).then(function (dataUrl) {
         var clave = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-        agregarMini(tipo, dataUrl, (d.apoyo || []).length ? 'Usted' : '', clave);
+        agregarMini(tipo, dataUrl, (d.apoyo || []).length ? 'Usted' : '', clave, clave);
         return encolar('tecSubirFoto', d.id, [d.id, tipo, dataUrl, clave], { tipo: tipo, clave: clave }).then(pintarCola);
       }).catch(function () { aviso('No se pudo leer una foto.'); });
     });
@@ -3635,7 +3735,7 @@
     var d = T.actual;
     if (file.size > MAX_VIDEO) { aviso('El video pesa ' + Math.round(file.size / 1048576) + ' MB y el máximo es 150 MB. Grábelo más corto.', 6000, 'error'); return; }
     var clave = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    agregarMini('VIDEO', urlLocal(file), (d.apoyo || []).length ? 'Usted' : '', clave);
+    agregarMini('VIDEO', urlLocal(file), (d.apoyo || []).length ? 'Usted' : '', clave, clave);
     encolar('tecSubirVideo', d.id, [], { tipo: 'VIDEO', clave: clave, blob: file, mime: file.type || 'video/mp4', total: file.size, enviado: 0 }).then(pintarCola);
   }
 
@@ -3718,7 +3818,7 @@
     if (!datos.recibeDoc) { marcarError($('oDoc'), 'Escriba la cédula de quien recibe.'); hayError = true; }
     if (datos.envioCanal === 'CORREO' ? !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(datos.envioDestino) : datos.envioDestino.replace(/\D/g, '').length < 10) { marcarError($('oDestino'), datos.envioCanal === 'CORREO' ? 'Escriba un correo válido.' : 'Escriba un WhatsApp de 10 dígitos.'); hayError = true; }
     if (!datos.aceptaCondiciones) { marcarError($('oAcepta').parentNode, 'Quien recibe debe aceptar las condiciones.'); hayError = true; }
-    if (T.firma.vacia()) { marcarError($('oFirma'), 'Falta la firma.'); hayError = true; }
+    if (!T.firmaPrevia && T.firma.vacia()) { marcarError($('oFirma'), 'Falta la firma.'); hayError = true; }
     if (hayError) { vibrar([30, 60, 30]); irAlError($('vistaTec')); return; }
     enviarCierre(d, datos);
   }
@@ -3728,7 +3828,8 @@
    * El borrador del texto se conserva hasta que la oficina lo recibe.
    */
   function enviarCierre(d, datos) {
-    datos.firma = d.tipoOrden === 'SIN_COBRO' ? '' : T.firma.dato();
+    datos.firma = d.tipoOrden === 'SIN_COBRO' || T.firmaPrevia ? '' : T.firma.dato();
+    if (T.firmaPrevia && d.tipoOrden !== 'SIN_COBRO') datos.firmaPrevia = true;
     $('oCerrar').disabled = true;
     encolar('tecCerrar', d.id, [d.id, datos]).then(function () {
       vibrar(20);
