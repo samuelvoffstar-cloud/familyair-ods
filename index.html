@@ -3158,7 +3158,12 @@
     enviando = true; pintarRed();
     var siguiente = function () {
       var e = lista.shift();
-      if (!e) { enviando = false; pintarRed(); if (!T.actual && $('tRefrescar')) refrescarLista(); return; }
+      if (!e) {
+        enviando = false; pintarRed();
+        // Lo que se encoló mientras se enviaba (ej. el equipo después de la foto de la placa) sale de una vez.
+        if (misEnvios().some(function (x) { return x.estado === 'pendiente' && x.n; })) return procesarEnvios();
+        if (!T.actual && $('tRefrescar')) refrescarLista(); return;
+      }
       if (T.pend.indexOf(e) < 0) return siguiente(); // se quitó de la cola (foto eliminada antes de enviarse)
       e.enCurso = true;
       (e.fn === 'tecSubirVideo' ? subirVideo(e) : apiTec.apply(null, [e.fn].concat(e.args))).then(function (r) {
@@ -3359,6 +3364,7 @@
     var borrador = leerLocal('fa_borrador_' + d.id) || {};
     var canal = borrador.envioCanal || d.envioCanal || 'WHATSAPP';
     var fichas = (borrador.fichas && borrador.fichas.length === d.fichas.length) ? borrador.fichas : d.fichas;
+    T.fichasEq = fichas.map(function (f) { return f.equipoId; });
     var jornadas = (d.jornadas || []).map(function (j) {
       return '<div class="jornada"><b>Día ' + esc(j.n) + '</b> <span class="gris">' + esc(j.inicio) + ' a ' + esc(j.fin) + ' · ' + esc(j.tecnico || '') + '</span>' + esc(j.trabajo) + (j.obs ? '<br><span class="gris">' + esc(j.obs) + '</span>' : '') + (j.pausa ? '<br><span class="gris">Pausa: ' + esc(j.pausa) + '</span>' : '') + '</div>';
     }).join('');
@@ -3500,12 +3506,9 @@
     };
     $('tEquipos').innerHTML = lista.length ? lista.map(function (e, i) {
       return '<div class="equipo"><div>' + (e.sede ? '<span class="chip-sede">' + esc(e.sede) + '</span><br>' : '') + '<b>' + esc(e.texto || e.id) + '</b><br>' +
-        unidad('Evaporadora', e.modelo, e.serial, e.escaneado) + '<br>' + unidad('Condensadora', e.modeloCond, e.serialCond, e.escaneadoCond) + '</div>' +
-        (cerrada ? '' : '<span class="placas"><button class="sec" data-placa="' + i + '|evap">' + ICON.camara + ' Evap.</button><button class="sec" data-placa="' + i + '|cond">' + ICON.camara + ' Cond.</button></span>') + '</div>';
+        unidad('Evaporadora', e.modelo, e.serial, e.escaneado) + '<br>' + unidad('Condensadora', e.modeloCond, e.serialCond, e.escaneadoCond) + '</div></div>';
     }).join('') : '<p class="gris">La orden no tiene equipos registrados.</p>';
-    $$('[data-placa]').forEach(function (b) {
-      b.onclick = function () { var p = b.getAttribute('data-placa').split('|'); T.placaEquipo = lista[Number(p[0])]; T.placaParte = p[1]; $('iPlaca').click(); };
-    });
+    // Las placas se escanean solo en la ficha técnica (pedido de Samuel, 27/10/2026); aquí se ven los datos del equipo.
   }
 
   // ---------- Escáner de placa: foto del sticker → OCR → el técnico confirma serial y modelo ----------
@@ -3539,9 +3542,37 @@
     var el = document.querySelector('[data-ficha="' + dest.i + '"]'); if (!el) return;
     var poner = function (campo, v, siVacio) { var x = el.querySelector('[data-fc="' + campo + '"]'); if (x && v && (!siVacio || !x.value)) { x.value = v; x.dispatchEvent(new Event('input', { bubbles: true })); } };
     var suf = dest.parte === 'cond' ? 'Cond' : 'Evap';
-    poner('modelo' + suf, r.modelo); poner('serial' + suf, r.serial); poner('marca', r.marca, true); poner('tipo', r.tipo, true); poner('capacidad', r.capacidad, true);
+    // Marca y capacidad leídas en la placa corrigen lo registrado; tipo, refrigerante y voltaje solo llenan lo vacío.
+    poner('modelo' + suf, r.modelo); poner('serial' + suf, r.serial); poner('marca', r.marca); poner('tipo', r.tipo, true); poner('capacidad', r.capacidad);
     poner('refrigerante', r.refrigerante, true); poner('voltaje', r.voltaje, true);
-    aviso(r.aviso || ('Placa leída: revise modelo y serial de la ' + (dest.parte === 'cond' ? 'condensadora' : 'evaporadora') + '.'), 0, r.aviso ? 'error' : 'exito');
+    if (r.aviso) { aviso(r.aviso, 0, 'error'); return; }
+    // Coherencia con Equipos: lo leído se compara con lo registrado del equipo y el equipo se corrige de una vez
+    // (la lista de equipos de la orden y la base quedan con lo mismo que la ficha).
+    var d = T.actual, idEq = (T.fichasEq || [])[Number(dest.i)];
+    var equipo = (d.equiposDetalle || []).filter(function (x) { return x.id === idEq; })[0];
+    var nombre = dest.parte === 'cond' ? 'condensadora' : 'evaporadora';
+    if (!equipo) { aviso('Placa leída: revise modelo y serial de la ' + nombre + '.', 0, 'exito'); return; }
+    var cmp = compararPlaca(equipo, r, dest.parte), distintos = cmp.filter(function (c) { return c.estado !== 'ok'; });
+    var cambia = function (k) { return cmp.some(function (c) { return c.clave === k && c.estado !== 'ok'; }) ? r[k] || '' : ''; };
+    // Solo se envía lo que no coincide (la misma capacidad con o sin "BTU" no reescribe el equipo).
+    var datos = { parte: dest.parte, fotoClave: r.fotoClave || '', marca: cambia('marca'), capacidad: cambia('capacidad'), tipo: equipo.tipo ? '' : (r.tipo || '') };
+    if (dest.parte === 'cond') { datos.modeloCond = r.modelo || ''; datos.serialCond = r.serial || ''; } else { datos.modelo = r.modelo || ''; datos.serial = r.serial || ''; }
+    encolar('tecGuardarEquipo', d.id, [d.id, equipo.id, datos]).then(function () {
+      var lista = (d.equiposDetalle || []).map(function (x) {
+        if (x.id !== equipo.id) return x;
+        var n = Object.assign({}, x);
+        ['modelo', 'serial', 'modeloCond', 'serialCond', 'marca', 'capacidad', 'tipo'].forEach(function (k) { if (datos[k]) n[k] = datos[k]; });
+        if (dest.parte === 'cond') n.escaneadoCond = true; else n.escaneado = true;
+        return n;
+      });
+      d.equiposDetalle = lista; if ($('tEquipos')) pintarEquipos(lista, false);
+    });
+    if (!distintos.length) { aviso('✓ La placa de la ' + nombre + ' coincide con el equipo registrado.', 0, 'exito'); return; }
+    modal('Placa de la ' + nombre,
+      '<p><b>' + esc(equipo.texto || equipo.id) + '</b></p><p>' + distintos.length + ' dato(s) no coincidían con lo registrado. Quedaron así en la ficha y se corrigieron en el equipo:</p>' +
+      '<table style="width:100%;font-size:14px"><thead><tr><th style="text-align:left">Dato</th><th style="text-align:left">Registrado</th><th style="text-align:left">Placa</th></tr></thead><tbody>' + distintos.map(function (c) {
+        return '<tr><td>' + esc(c.campo) + '</td><td>' + (c.reg ? esc(c.reg) : '<span class="gris">vacío</span>') + '</td><td><b>' + esc(c.leido) + '</b></td></tr>';
+      }).join('') + '</tbody></table><p class="gris">Si la placa se leyó mal, corrija el dato en la ficha: al cerrar, el equipo queda con lo que diga la ficha.</p>', 560);
   }
 
   /** Compara lo registrado de la unidad (evaporadora o condensadora) con lo leído en su placa (sin espacios, guiones ni mayúsculas). */
@@ -3581,7 +3612,6 @@
           return '<tr><td>' + esc(c.campo) + '</td><td>' + (c.reg ? esc(c.reg) : '<span class="gris">vacío</span>') + '</td><td><b>' + esc(c.leido) + '</b></td><td>' + (c.estado === 'ok' ? '✓' : c.estado === 'nuevo' ? 'se agrega' : '<span class="error">corrige</span>') + '</td></tr>';
         }).join('') + '</tbody></table></div>' : (foto && !r.aviso ? '<p class="gris">Revise lo que leyó el sistema y corrija si hace falta.</p>' : '')) +
       (!equipo ? '<p class="gris">Se agrega a la base en esta sede y a esta orden, con sus dos unidades.</p>' +
-        '<div class="fila"><button class="sec" id="plCamEvap">' + ICON.camara + ' Placa evaporadora</button><button class="sec" id="plCamCond">' + ICON.camara + ' Placa condensadora</button></div>' +
         (T.actual.sedesExtra && T.actual.sedesExtra.length ? '<label>Sede donde está el equipo</label><select id="plSede">' + [{ id: T.actual.idSede, nombre: T.actual.sede }].concat(T.actual.sedesExtra).map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === nuevo.idSede ? ' selected' : '') + '>' + esc(s.nombre) + '</option>'; }).join('') + '</select>' : '') : '') +
       '<label>Tipo de equipo</label><input id="plTipo" placeholder="Mini split, cassette, piso techo…" value="' + esc(val('tipo')) + '">' +
       '<div class="unidades"><div' + (parte === 'evap' && foto ? ' class="leida"' : '') + '><h4>Evaporadora (interior)</h4><label>Modelo</label><input id="plModelo" value="' + esc(val('modelo')) + '">' +
