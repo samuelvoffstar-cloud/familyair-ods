@@ -1345,7 +1345,10 @@
       var f = d.fotos.filter(function (x) { return x.tipo === tipo; });
       return f.length ? '<h3>' + titulo + ' (' + f.length + ')</h3><div class="fotos">' + f.map(function (x) {
         var por = x.usuario ? ((AD.tecnicos.filter(function (t) { return t.usuario === x.usuario; })[0] || {}).nombre || x.usuario) : '';
-        var a = '<a href="' + urlDrive(x.id) + '" target="_blank"' + (tipo === 'VIDEO' ? ' class="video"' : '') + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="' + (tipo === 'VIDEO' ? 'Video de evidencia' : tipo) + '" loading="lazy"></a>';
+        // Las fotos se traen del servidor (la miniatura de Drive no carga si el navegador no tiene sesión en la cuenta
+        // del sistema) y al tocarlas se ven en grande; los videos siguen abriendo Drive.
+        var a = tipo === 'VIDEO' ? '<a href="' + urlDrive(x.id) + '" target="_blank" class="video"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="Video de evidencia" loading="lazy"></a>'
+          : '<a href="' + urlDrive(x.id) + '" target="_blank" data-vfoto="' + esc(x.clave || x.id) + '" data-vtipo="' + tipo + '"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + PIXEL + '" data-cargar="' + esc(x.clave || x.id) + '" data-fid="' + esc(x.id) + '" alt="' + ({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia', PLACA: 'Placa' })[tipo] + '"></a>';
         // Quien edita la orden puede eliminar una foto que el técnico subió por error.
         return puede('editar') && d.estado !== 'ANULADA' ? '<span class="foto-adm">' + a + '<button type="button" class="quitar" data-qfoto="' + esc(x.clave || x.id) + '" data-qtipo="' + tipo + '" aria-label="Eliminar ' + (tipo === 'VIDEO' ? 'video' : 'foto') + '">×</button></span>' : a;
       }).join('') + '</div>' : '';
@@ -1403,7 +1406,7 @@
         dato('Recibe', esc(d.recibeNombre) + (d.recibeDoc ? ' · CC ' + esc(d.recibeDoc) : '')) +
         dato('Soporte por', d.envioCanal ? esc(d.envioCanal === 'CORREO' ? 'Correo' : 'WhatsApp') + ' · ' + esc(d.envioDestino) : '') +
         dato('Soporte enviado', d.soporteEnviado ? esc(d.soporteEnviado).replace(/\n/g, '<br>') : '') + dato('Placas escaneadas', placas) + '</dl>' +
-        (d.firmaId ? '<h3>Firma de quien recibe</h3><a href="' + urlDrive(d.firmaId) + '" target="_blank"><img src="' + miniDrive(d.firmaId) + '" alt="Firma de quien recibe" style="max-width:260px;border:1px solid var(--borde);border-radius:8px;background:#fff"></a>' : '') +
+        (d.firmaId ? '<h3>Firma de quien recibe</h3><a href="' + urlDrive(d.firmaId) + '" target="_blank" data-vfoto="' + esc(d.firmaId) + '" data-vtipo="FIRMA"><img src="' + PIXEL + '" data-cargar="' + esc(d.firmaId) + '" data-fid="' + esc(d.firmaId) + '" alt="Firma de quien recibe" style="max-width:260px;border:1px solid var(--borde);border-radius:8px;background:#fff"></a>' : '') +
         '</div>' : '') +
       (d.fotos.length ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between">Evidencias' + (d.carpetaId ? '<a style="font-size:14px" href="' + urlCarpeta(d.carpetaId) + '" target="_blank">Abrir carpeta en Drive</a>' : '') + '</h2>' +
         fotos('ANTES', 'Antes') + fotos('DESPUES', 'Después') + fotos('EVIDENCIA', 'Otras evidencias') + fotos('VIDEO', 'Videos') + fotos('PLACA', 'Placas') + '</div>' : '') +
@@ -1452,6 +1455,19 @@
       });
     });
     accion('aRegOC', function () { modalRegistrarOC(d, function (nd) { pintarDetalle(cont, nd); }); });
+    $$('img[data-cargar]', cont).forEach(function (img) { fotoAdm(img, d.id); });
+    $$('[data-vfoto]', cont).forEach(function (a) {
+      a.onclick = function (ev) {
+        ev.preventDefault();
+        var ref = a.getAttribute('data-vfoto'), tipo = a.getAttribute('data-vtipo'), img = a.querySelector('img');
+        var bt = a.parentNode.querySelector('[data-qfoto]');
+        var v = modal(({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia', PLACA: 'Placa', FIRMA: 'Firma de quien recibe' })[tipo] || 'Foto',
+          '<img src="' + (AD.fotos[ref] || img.src) + '" alt="' + esc(img.alt) + '" style="width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#1f2a37">' +
+          '<div class="acciones"><a class="sec boton" href="' + a.href + '" target="_blank" rel="noopener" style="padding:8px 14px;border:1px solid var(--primario);border-radius:8px">Abrir en Drive</a>' +
+          (bt ? '<button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button>' : '') + '</div>', 820);
+        if (v.querySelector('#vfQuitar')) v.querySelector('#vfQuitar').onclick = function () { v.remove(); bt.click(); };
+      };
+    });
     $$('[data-qfoto]', cont).forEach(function (bt) {
       bt.onclick = function (ev) {
         ev.preventDefault(); ev.stopPropagation();
@@ -1612,6 +1628,28 @@
       api('adminSeguimientoCobro', d.id, t).then(function (nd) { m.remove(); aviso('Seguimiento guardado en ' + d.id + '.', 0, 'exito'); listo(nd); })
         .catch(function (e) { $('sgMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
+  }
+
+  // ---------- Fotos de la orden en el panel ----------
+  var PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  var COLA_FOTOS = [], FOTOS_CARGANDO = 0;
+  /** Carga la foto desde el servidor (de a 3 a la vez) y la guarda en memoria para no pedirla de nuevo. */
+  function fotoAdm(img, ods) {
+    var ref = img.getAttribute('data-cargar');
+    AD.fotos = AD.fotos || {};
+    if (AD.fotos[ref]) { img.src = AD.fotos[ref]; return; }
+    COLA_FOTOS.push(function (listo) {
+      if (AD.fotos[ref]) { img.src = AD.fotos[ref]; return listo(); }
+      llamar('adminVerFoto', [ods, ref], false).then(function (u) { AD.fotos[ref] = u; img.src = u; })
+        .catch(function () { img.src = miniDrive(img.getAttribute('data-fid')); }).then(listo);
+    });
+    siguienteFoto();
+  }
+  function siguienteFoto() {
+    while (FOTOS_CARGANDO < 3 && COLA_FOTOS.length) {
+      FOTOS_CARGANDO++;
+      COLA_FOTOS.shift()(function () { FOTOS_CARGANDO--; siguienteFoto(); });
+    }
   }
 
   // Hay clientes que no llevan etiqueta de tarifa: '' es "Sin tarifa" (los precios de la lista salen de la plena).
@@ -3382,7 +3420,7 @@
         '<label class="chk"><input type="checkbox" id="oAcepta"' + (d.devuelta ? ' checked' : '') + '> Quien recibe leyó y acepta las condiciones generales y autoriza el tratamiento de sus datos personales</label>' +
         '<label>Firma de quien recibe *</label>' +
         // Orden devuelta por la oficina: se conserva la firma que ya se había tomado, salvo que se tome otra.
-        (d.devuelta && d.firmaId ? '<div id="oFirmaPrevia"><img src="' + miniDrive(d.firmaId) + '" alt="Firma tomada en el cierre anterior" style="max-width:100%;height:150px;object-fit:contain;border:1px solid var(--borde);border-radius:10px;background:#fff"><p class="gris" style="margin:4px 0">Firma tomada en el cierre anterior. Se conserva.</p><button class="sec" id="oFirmaNueva" type="button">Tomar la firma de nuevo</button></div>' : '') +
+        (d.devuelta && d.firmaId ? '<div id="oFirmaPrevia"><img id="oFirmaPreviaImg" alt="Firma tomada en el cierre anterior" style="max-width:100%;height:150px;object-fit:contain;border:1px solid var(--borde);border-radius:10px;background:#fff"><p class="gris" style="margin:4px 0">Firma tomada en el cierre anterior. Se conserva.</p><button class="sec" id="oFirmaNueva" type="button">Tomar la firma de nuevo</button></div>' : '') +
         '<div id="oFirmaBox"' + (d.devuelta && d.firmaId ? ' style="display:none"' : '') + '><canvas class="firma" id="oFirma"></canvas>' +
         '<div class="acciones"><button class="sec" id="oBorrarFirma">Borrar firma</button></div></div>' + (sinCobro ? '</div>' : '') +
         '<div class="acciones"><button id="oCerrar" class="btn-grande ok">Completar servicio</button></div><p id="oMsg"></p></div>' : '');
@@ -3423,6 +3461,7 @@
     $('iVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
     $('tEqNuevo').onclick = function () { T.placaEquipo = null; T.fichaDestino = null; modalPlaca(null, null); };
     T.firmaPrevia = !!(d.devuelta && d.firmaId);
+    if ($('oFirmaPreviaImg')) cargarFoto($('oFirmaPreviaImg'), d.id, d.firmaId, miniDrive(d.firmaId));
     if ($('oFirmaNueva')) $('oFirmaNueva').onclick = function () { T.firmaPrevia = false; $('oFirmaPrevia').style.display = 'none'; $('oFirmaBox').style.display = ''; T.firma = prepararFirma($('oFirma')); $('oBorrarFirma').onclick = T.firma.limpiar; };
     T.firma = prepararFirma($('oFirma'));
     $('oBorrarFirma').onclick = T.firma.limpiar;
