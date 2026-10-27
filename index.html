@@ -3612,6 +3612,8 @@
           return '<tr><td>' + esc(c.campo) + '</td><td>' + (c.reg ? esc(c.reg) : '<span class="gris">vacío</span>') + '</td><td><b>' + esc(c.leido) + '</b></td><td>' + (c.estado === 'ok' ? '✓' : c.estado === 'nuevo' ? 'se agrega' : '<span class="error">corrige</span>') + '</td></tr>';
         }).join('') + '</tbody></table></div>' : (foto && !r.aviso ? '<p class="gris">Revise lo que leyó el sistema y corrija si hace falta.</p>' : '')) +
       (!equipo ? '<p class="gris">Se agrega a la base en esta sede y a esta orden, con sus dos unidades.</p>' +
+        // Equipo no registrado: sí puede leer las placas con la cámara (pedido de Samuel, 27/10/2026).
+        '<div class="fila"><button class="sec" id="plCamEvap">' + ICON.camara + ' Placa evaporadora</button><button class="sec" id="plCamCond">' + ICON.camara + ' Placa condensadora</button></div>' +
         (T.actual.sedesExtra && T.actual.sedesExtra.length ? '<label>Sede donde está el equipo</label><select id="plSede">' + [{ id: T.actual.idSede, nombre: T.actual.sede }].concat(T.actual.sedesExtra).map(function (s) { return '<option value="' + esc(s.id) + '"' + (s.id === nuevo.idSede ? ' selected' : '') + '>' + esc(s.nombre) + '</option>'; }).join('') + '</select>' : '') : '') +
       '<label>Tipo de equipo</label><input id="plTipo" placeholder="Mini split, cassette, piso techo…" value="' + esc(val('tipo')) + '">' +
       '<div class="unidades"><div' + (parte === 'evap' && foto ? ' class="leida"' : '') + '><h4>Evaporadora (interior)</h4><label>Modelo</label><input id="plModelo" value="' + esc(val('modelo')) + '">' +
