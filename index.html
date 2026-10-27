@@ -1342,14 +1342,15 @@
     if (puede('informes') && ['PROGRAMADA', 'EN_CURSO', 'ANULADA'].indexOf(d.estado) < 0) b('aInforme', 'Crear informe técnico', 'sec');
     $('dAcc').innerHTML = acc.join('');
 
-    var fotos = function (tipo, titulo) {
-      var f = d.fotos.filter(function (x) { return x.tipo === tipo; });
+    var fotos = function (tipos, titulo) {
+      var f = d.fotos.filter(function (x) { return [].concat(tipos).indexOf(x.tipo) >= 0; });
       return f.length ? '<h3>' + titulo + ' (' + f.length + ')</h3><div class="fotos">' + f.map(function (x) {
         var por = x.usuario ? ((AD.tecnicos.filter(function (t) { return t.usuario === x.usuario; })[0] || {}).nombre || x.usuario) : '';
         // Las fotos se traen del servidor (la miniatura de Drive no carga si el navegador no tiene sesión en la cuenta
         // del sistema) y al tocarlas se ven en grande; los videos siguen abriendo Drive.
+        var tipo = x.tipo;
         var a = tipo === 'VIDEO' ? '<a href="' + urlDrive(x.id) + '" target="_blank" class="video"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + miniDrive(x.id) + '" alt="Video de evidencia" loading="lazy"></a>'
-          : '<a href="' + urlDrive(x.id) + '" target="_blank" data-vfoto="' + esc(x.clave || x.id) + '" data-vtipo="' + tipo + '"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + PIXEL + '" data-cargar="' + esc(x.clave || x.id) + '" data-fid="' + esc(x.id) + '" alt="' + ({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia', PLACA: 'Placa' })[tipo] + '"></a>';
+          : '<a href="' + urlDrive(x.id) + '" target="_blank" data-vfoto="' + esc(x.clave || x.id) + '" data-vtipo="' + tipo + '"' + (por ? ' title="Subida por ' + esc(por) + '"' : '') + '><img src="' + PIXEL + '" data-cargar="' + esc(x.clave || x.id) + '" data-fid="' + esc(x.id) + '" alt="' + ({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Foto de evidencia', PLACA: 'Placa' })[tipo] + '"></a>';
         // Quien edita la orden puede eliminar una foto que el técnico subió por error.
         return puede('editar') && d.estado !== 'ANULADA' ? '<span class="foto-adm">' + a + '<button type="button" class="quitar" data-qfoto="' + esc(x.clave || x.id) + '" data-qtipo="' + tipo + '" aria-label="Eliminar ' + (tipo === 'VIDEO' ? 'video' : 'foto') + '">×</button></span>' : a;
       }).join('') + '</div>' : '';
@@ -1410,7 +1411,7 @@
         (d.firmaId ? '<h3>Firma de quien recibe</h3><a href="' + urlDrive(d.firmaId) + '" target="_blank" data-vfoto="' + esc(d.firmaId) + '" data-vtipo="FIRMA"><img src="' + PIXEL + '" data-cargar="' + esc(d.firmaId) + '" data-fid="' + esc(d.firmaId) + '" alt="Firma de quien recibe" style="max-width:260px;border:1px solid var(--borde);border-radius:8px;background:#fff"></a>' : '') +
         '</div>' : '') +
       (d.fotos.length ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between">Evidencias' + (d.carpetaId ? '<a style="font-size:14px" href="' + urlCarpeta(d.carpetaId) + '" target="_blank">Abrir carpeta en Drive</a>' : '') + '</h2>' +
-        fotos('ANTES', 'Antes') + fotos('DESPUES', 'Después') + fotos('EVIDENCIA', 'Otras evidencias') + fotos('VIDEO', 'Videos') + fotos('PLACA', 'Placas') + '</div>' : '') +
+        fotos(['ANTES', 'DESPUES', 'EVIDENCIA'], 'Fotos') + fotos('VIDEO', 'Videos') + fotos('PLACA', 'Placas') + '</div>' : '') +
       (d.liquidadoPor || d.formaPago || d.factura || d.siigoError ? '<div class="tarjeta"><h2>Liquidación, cobro y factura</h2><dl class="datos">' +
         dato('Adicionales', esc(d.adicionales)) + dato('Forma de pago', esc(NOMBRES_PAGO[d.formaPago] || d.formaPago)) +
         dato('Liquidó', esc([d.liquidadoPor, d.fechaLiquidacion].filter(Boolean).join(' · '))) +
@@ -1462,7 +1463,7 @@
         ev.preventDefault();
         var ref = a.getAttribute('data-vfoto'), tipo = a.getAttribute('data-vtipo'), img = a.querySelector('img');
         var bt = a.parentNode.querySelector('[data-qfoto]');
-        var v = modal(({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia', PLACA: 'Placa', FIRMA: 'Firma de quien recibe' })[tipo] || 'Foto',
+        var v = modal(({ PLACA: 'Placa', FIRMA: 'Firma de quien recibe' })[tipo] || 'Foto',
           '<img src="' + (AD.fotos[ref] || img.src) + '" alt="' + esc(img.alt) + '" style="width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#1f2a37">' +
           '<div class="acciones"><a class="sec boton" href="' + a.href + '" target="_blank" rel="noopener" style="padding:8px 14px;border:1px solid var(--primario);border-radius:8px">Abrir en Drive</a>' +
           (bt ? '<button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button>' : '') + '</div>', 820);
@@ -3397,12 +3398,11 @@
       (activa ?
         (d.estado === 'PROGRAMADA' ? (d.pendDisponibilidad ? '<div class="tarjeta"><p><b>Pendiente por confirmar.</b> La oficina debe confirmar el servicio antes de iniciarlo.</p></div>' : '<div class="tarjeta"><button id="oIniciar" class="btn-grande">Llegué · iniciar servicio</button></div>') : '') +
         '<div class="tarjeta"><h2>Evidencias</h2>' +
-        ['ANTES', 'DESPUES', 'EVIDENCIA'].map(function (t) {
-          return '<h3>' + (sinCobro ? { ANTES: 'Fotos antes (opcional)', DESPUES: 'Fotos después (opcional)', EVIDENCIA: 'Otras evidencias' } : { ANTES: 'Fotos antes *', DESPUES: 'Fotos después *', EVIDENCIA: 'Otras evidencias' })[t] + '</h3><div class="fotos" id="f' + t + '"></div>' +
-            '<label class="sec" id="b' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Tomar foto<input type="file" accept="image/*" capture="environment" multiple id="i' + t + '" style="display:none"></label>' +
-            // Galería: fotos que ya están en el celular (sin "capture", el teléfono deja escoger de la galería).
-            ' <label class="sec" id="g' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.galeria + '&nbsp;Galería<input type="file" accept="image/*" multiple id="ig' + t + '" style="display:none"></label>';
-        }).join('') +
+        // Una sola sección de fotos (pedido de Samuel, 27/10/2026): sin separar antes, después ni otras evidencias.
+        '<h3>' + (sinCobro ? 'Fotos (opcional)' : 'Fotos *') + '</h3><div class="fotos" id="fEVIDENCIA"></div>' +
+        '<label class="sec" id="bEVIDENCIA" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Tomar foto<input type="file" accept="image/*" capture="environment" multiple id="iEVIDENCIA" style="display:none"></label>' +
+        // Galería: fotos que ya están en el celular (sin "capture", el teléfono deja escoger de la galería).
+        ' <label class="sec" id="gEVIDENCIA" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.galeria + '&nbsp;Galería<input type="file" accept="image/*" multiple id="igEVIDENCIA" style="display:none"></label>' +
         '<h3>Videos (opcional)</h3><div class="fotos" id="fVIDEO"></div>' +
         '<label class="sec" id="bVIDEO" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Grabar video<input type="file" accept="video/*" capture="environment" id="iVIDEO" style="display:none"></label>' +
         ' <label class="sec" id="gVIDEO" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.galeria + '&nbsp;Galería<input type="file" accept="video/*" id="igVIDEO" style="display:none"></label>' +
@@ -3455,11 +3455,10 @@
     }
     var borradas = fotosPorBorrar(d.id);
     d.fotos = d.fotos.filter(function (f) { return borradas.indexOf(f.clave || f.id) < 0; });
-    ['ANTES', 'DESPUES', 'EVIDENCIA'].forEach(function (tipo) {
-      d.fotos.filter(function (f) { return f.tipo === tipo && borradas.indexOf(f.clave || f.id) < 0; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id, f.id); });
-      enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
-      $('i' + tipo).onchange = $('ig' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
-    });
+    // Todas las fotos en la misma sección (las de órdenes anteriores con antes y después también).
+    d.fotos.filter(function (f) { return FOTOS_EVID.indexOf(f.tipo) >= 0; }).forEach(function (f) { agregarMini(f.tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id, f.id); });
+    enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && FOTOS_EVID.indexOf(e.tipo) >= 0; }).forEach(function (e) { agregarMini(e.tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
+    $('iEVIDENCIA').onchange = $('igEVIDENCIA').onchange = function () { encolarFotos('EVIDENCIA', this.files); this.value = ''; };
     d.fotos.filter(function (f) { return f.tipo === 'VIDEO'; }).forEach(function (f) { agregarMini('VIDEO', miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id); });
     enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirVideo'; }).forEach(function (e) { agregarMini('VIDEO', urlLocal(e.blob), (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
     $('iVIDEO').onchange = $('igVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
@@ -3638,8 +3637,9 @@
   }
 
   /** Miniatura de una foto; "por" es quien la subió (se muestra cuando la orden la trabajan varios técnicos). */
+  var FOTOS_EVID = ['ANTES', 'DESPUES', 'EVIDENCIA'];
   function agregarMini(tipo, src, por, clavePendiente, ref, fotoId) {
-    var cont = $('f' + tipo); if (!cont) return;
+    var cont = $(tipo === 'VIDEO' ? 'fVIDEO' : 'fEVIDENCIA'); if (!cont) return;
     var m = document.createElement('div'); m.className = 'mini' + (clavePendiente ? ' pendiente' : '');
     if (clavePendiente) m.setAttribute('data-clave', clavePendiente);
     if (ref) {
@@ -3659,7 +3659,7 @@
         var iv = document.createElement('img'); iv.src = src; iv.alt = 'Video de evidencia'; iv.onerror = function () { iv.removeAttribute('src'); }; m.appendChild(iv);
       }
     } else {
-      var img = document.createElement('img'); img.alt = 'Foto ' + ({ ANTES: 'de antes', DESPUES: 'de después', EVIDENCIA: 'de evidencia' })[tipo]; m.appendChild(img);
+      var img = document.createElement('img'); img.alt = 'Foto de evidencia'; m.appendChild(img);
       // Foto ya enviada: la miniatura de Drive no carga en el celular (no tiene sesión en la cuenta del sistema),
       // así que se usa la copia guardada en el celular o se trae del servidor.
       if (fotoId && ref && T.actual) cargarFoto(img, T.actual.id, ref, src); else img.src = src;
@@ -3775,7 +3775,7 @@
   /** Foto en grande para revisarla antes de decidir si se elimina. */
   function verFoto(m, tipo, img) {
     if (!img.src) return;
-    var v = modal(({ ANTES: 'Foto de antes', DESPUES: 'Foto de después', EVIDENCIA: 'Otra evidencia' })[tipo] || 'Foto',
+    var v = modal('Foto',
       '<img src="' + img.src + '" alt="' + esc(img.alt) + '" style="width:100%;max-height:70vh;object-fit:contain;border-radius:10px;background:#1f2a37">' +
       (m.getAttribute('data-ref') ? '<div class="acciones"><button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button></div>' : ''), 720);
     if (v.querySelector('#vfQuitar')) v.querySelector('#vfQuitar').onclick = function () { v.remove(); quitarFoto(m, tipo); };
@@ -3879,8 +3879,7 @@
       return enviarCierre(d, datos);
     }
     var tieneFoto = function (tipo) { return d.fotos.some(function (f) { return f.tipo === tipo; }) || enviosDe(d.id).some(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }); };
-    if (!tieneFoto('ANTES')) { marcarError($('bANTES'), 'Agregue al menos una foto de antes.'); hayError = true; }
-    if (!tieneFoto('DESPUES')) { marcarError($('bDESPUES'), 'Agregue al menos una foto de después.'); hayError = true; }
+    if (!FOTOS_EVID.some(tieneFoto)) { marcarError($('fEVIDENCIA'), 'Agregue al menos una foto.'); hayError = true; }
     if ($('oFichas') && validarFichas($('oFichas'), d.fichaCampos, d.fichaTareas)) hayError = true;
     if (!datos.estadoArtefacto.length) { marcarError($('oArt'), 'Marque el estado del artefacto.'); hayError = true; }
     if (!datos.trabajo) { marcarError($('oTrabajo'), 'Escriba el trabajo realizado.'); hayError = true; }
