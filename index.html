@@ -884,6 +884,7 @@
     tel: '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>',
     mapa: '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>',
     wa: '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-3.3-.8a11.6 11.6 0 0 1-4.5-4c-.4-.5-1-1.6-1-2.9 0-1.3.7-2 1-2.3.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.4.6c-.1.2-.3.3-.1.6.2.3.7 1.2 1.6 1.9 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l2 1c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>',
+    galeria: '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M21 19V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2zM8.5 13.5l2.5 3 3.5-4.5 4.5 6H5l3.5-4.5z"/></svg>',
     camara: '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>'
   };
 
@@ -3398,10 +3399,13 @@
         '<div class="tarjeta"><h2>Evidencias</h2>' +
         ['ANTES', 'DESPUES', 'EVIDENCIA'].map(function (t) {
           return '<h3>' + (sinCobro ? { ANTES: 'Fotos antes (opcional)', DESPUES: 'Fotos después (opcional)', EVIDENCIA: 'Otras evidencias' } : { ANTES: 'Fotos antes *', DESPUES: 'Fotos después *', EVIDENCIA: 'Otras evidencias' })[t] + '</h3><div class="fotos" id="f' + t + '"></div>' +
-            '<label class="sec" id="b' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Agregar foto<input type="file" accept="image/*" capture="environment" multiple id="i' + t + '" style="display:none"></label>';
+            '<label class="sec" id="b' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Tomar foto<input type="file" accept="image/*" capture="environment" multiple id="i' + t + '" style="display:none"></label>' +
+            // Galería: fotos que ya están en el celular (sin "capture", el teléfono deja escoger de la galería).
+            ' <label class="sec" id="g' + t + '" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.galeria + '&nbsp;Galería<input type="file" accept="image/*" multiple id="ig' + t + '" style="display:none"></label>';
         }).join('') +
         '<h3>Videos (opcional)</h3><div class="fotos" id="fVIDEO"></div>' +
         '<label class="sec" id="bVIDEO" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.camara + '&nbsp;Grabar video<input type="file" accept="video/*" capture="environment" id="iVIDEO" style="display:none"></label>' +
+        ' <label class="sec" id="gVIDEO" style="display:inline-flex;margin-top:8px;border:1px solid var(--primario);color:var(--primario);border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">' + ICON.galeria + '&nbsp;Galería<input type="file" accept="video/*" id="igVIDEO" style="display:none"></label>' +
         '<p class="gris" style="margin:6px 0 0">Para mostrar un ruido, una fuga o el equipo funcionando. Hasta unos 2 minutos; sin señal queda guardado y se sube solo.</p>' +
         '<p id="colaMsg" class="gris"></p></div>' +
         (fichas.length ? '<div class="tarjeta"><h2>Ficha técnica · Control de mantenimiento preventivo</h2><p class="gris" style="margin-top:0">Todos los campos son obligatorios. Use "Placa" para leer modelo y serial con la cámara.</p><div id="oFichas">' +
@@ -3454,11 +3458,11 @@
     ['ANTES', 'DESPUES', 'EVIDENCIA'].forEach(function (tipo) {
       d.fotos.filter(function (f) { return f.tipo === tipo && borradas.indexOf(f.clave || f.id) < 0; }).forEach(function (f) { agregarMini(tipo, miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id, f.id); });
       enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirFoto' && e.tipo === tipo; }).forEach(function (e) { agregarMini(tipo, e.args[2], (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
-      $('i' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
+      $('i' + tipo).onchange = $('ig' + tipo).onchange = function () { encolarFotos(tipo, this.files); this.value = ''; };
     });
     d.fotos.filter(function (f) { return f.tipo === 'VIDEO'; }).forEach(function (f) { agregarMini('VIDEO', miniDrive(f.id), (d.apoyo || []).length ? f.por : '', null, f.clave || f.id); });
     enviosDe(d.id).filter(function (e) { return e.fn === 'tecSubirVideo'; }).forEach(function (e) { agregarMini('VIDEO', urlLocal(e.blob), (d.apoyo || []).length ? 'Usted' : '', e.clave, e.clave); });
-    $('iVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
+    $('iVIDEO').onchange = $('igVIDEO').onchange = function () { if (this.files[0]) encolarVideo(this.files[0]); this.value = ''; };
     $('tEqNuevo').onclick = function () { T.placaEquipo = null; T.fichaDestino = null; modalPlaca(null, null); };
     T.firmaPrevia = !!(d.devuelta && d.firmaId);
     if ($('oFirmaPreviaImg')) cargarFoto($('oFirmaPreviaImg'), d.id, d.firmaId, miniDrive(d.firmaId));
