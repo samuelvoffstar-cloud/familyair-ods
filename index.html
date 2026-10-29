@@ -1322,8 +1322,16 @@
     document.querySelector('.titulo-pag').innerHTML = '<h1>' + esc(d.id) + ' ' + chipEstado(d.estado) + marcasOrden(d) + '</h1><div class="acciones" id="dAcc" style="margin:0"></div>';
     var acc = [];
     var b = function (idb, txt, clase) { acc.push('<button id="' + idb + '" class="' + (clase || '') + '">' + txt + '</button>'); };
-    if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) { b('aRevisar', d.enRetorno ? 'Revisado · completar retorno' : d.tipoOrden === 'SIN_COBRO' ? 'Revisado · completar' : 'Revisado', 'ok'); b('aDevolver', 'Devolver al técnico', 'sec'); }
+    // Una garantía (no retorno) se revisa y se liquida en un solo paso (botón Revisar y liquidar).
+    if (d.estado === 'CERRADA_TECNICO' && puede('revisar') && (d.tipoOrden !== 'GARANTIA' || d.enRetorno)) b('aRevisar', d.enRetorno ? 'Revisado · completar retorno' : d.tipoOrden === 'SIN_COBRO' ? 'Revisado · completar' : 'Revisado', 'ok');
     if ((d.estado === 'REVISADA' || d.estado === 'LIQUIDADA') && puede('liquidar')) b('aLiquidar', d.estado === 'REVISADA' ? 'Liquidar' : 'Corregir liquidación', d.estado === 'REVISADA' ? 'ok' : 'sec');
+    // Garantías: las liquida la auxiliar (pedido de Samuel, 29/10/2026), de una vez al revisarlas.
+    var garantiaAux = d.tipoOrden === 'GARANTIA' && !d.enRetorno && puede('revisar');
+    if (garantiaAux && d.estado === 'CERRADA_TECNICO') b('aRevLiq', 'Revisar y liquidar', 'ok');
+    if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) b('aDevolver', 'Devolver al técnico', 'sec');
+    if (garantiaAux && !puede('liquidar') && (d.estado === 'REVISADA' || d.estado === 'LIQUIDADA')) b('aLiqGa', d.estado === 'REVISADA' ? 'Liquidar garantía' : 'Corregir liquidación', d.estado === 'REVISADA' ? 'ok' : 'sec');
+    // Cuenta de cobro (opcional) a nombre de Lucas, con el formato de la empresa.
+    if (['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('cobrar') && d.total > 0) b('aCuentaCobro', d.cuentaCobroId ? 'Cuenta de cobro de nuevo' : 'Cuenta de cobro', 'sec');
     if (d.estado === 'LIQUIDADA' && puede('cobrar')) { if (d.formaPago === 'FACTURA') b('aFacturar', 'Pasar a facturar', 'ok'); else b('aCobrar', 'Registrar pago y completar', 'ok'); }
     // Cliente que factura con orden de compra: cotización en Siigo con lo liquidado → OC del cliente → factura.
     if (d.facturaConOc && d.formaPago === 'FACTURA' && ['LIQUIDADA', 'POR_FACTURAR'].indexOf(d.estado) >= 0 && !d.siigoId && puede('cobrar')) {
@@ -1382,9 +1390,10 @@
       (d.estado === 'EN_PAUSA' ? '<div class="tarjeta"><b>En pausa:</b> ' + esc(d.pausaMotivo) + (d.pausaRetoma ? ' · retoma ' + esc(d.pausaRetoma) : '') + '</div>' : '') +
       alertaValores(d) +
       '<div class="tarjeta tabla-card"><div class="herramientas"><h2 style="margin:0">Ítems</h2></div>' + tablaItemsLectura(d) + '</div>' +
-      (d.cotizacion || d.oc ? '<div class="tarjeta"><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno, no la ve el técnico ni el cliente</span></h2><dl class="datos">' +
-        (d.cotizacion ? dato('Cotización Siigo', '<b>' + esc(d.cotizacion) + '</b>' + (d.cotizacionTotal != null ? ' · ' + esc(d.cotizacionFecha || '') + ' · ' + pesos(d.cotizacionTotal) : '') +
+      (d.cotizacion || (d.cotizacionesExtra || []).length || d.oc ? '<div class="tarjeta"><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno, no la ve el técnico ni el cliente</span></h2><dl class="datos">' +
+        (d.cotizacion ? dato('Cotización Siigo', '<b>' + esc(d.cotizacion) + '</b>' + (d.cotizacionTotal != null && !(d.cotizacionesExtra || []).length ? ' · ' + esc(d.cotizacionFecha || '') + ' · ' + pesos(d.cotizacionTotal) : '') +
           (puede('editar') ? ' · <a href="#" id="dCotQuitar" class="link-peligro">Quitar</a>' : '')) : '') +
+        ((d.cotizacionesExtra || []).length ? dato('Otras cotizaciones', d.cotizacionesExtra.map(function (c) { return '<b>' + esc(c.numero) + '</b>' + (c.total !== '' && c.total != null ? ' · ' + pesos(c.total) : ''); }).join('<br>') + '<br><span class="gris">Total cotizado: ' + pesos(d.cotizacionTotal) + '</span>') : '') +
         (d.oc ? dato('Orden de compra', '<b>' + esc(d.oc.numero) + '</b>' + (d.oc.tercero ? ' · ' + esc(d.oc.tercero) : '') + (d.oc.fecha ? ' · ' + esc(d.oc.fecha) : '') + (d.oc.valor != null ? ' · ' + pesos(d.oc.valor) : '') +
           (d.oc.archivoId ? ' · <a href="' + urlDrive(d.oc.archivoId) + '" target="_blank">Ver OC</a>' : ' · <span class="gris">sin documento</span>') +
           (puede('editar') || puede('cobrar') ? '<br><a href="#" id="dOcCorreo" style="font-weight:600">Traer del correo</a> · <label style="display:inline;margin:0;cursor:pointer;color:var(--primario);font-weight:600;text-transform:none;letter-spacing:0;font-size:inherit">' + (d.oc.archivoId ? 'Cambiar documento' : 'Adjuntar documento') + '<input type="file" id="dOcArchivo" accept="application/pdf,image/jpeg,image/png" style="display:none"></label>' + (puede('editar') ? ' · <a href="#" id="dOcQuitar" class="link-peligro">Quitar</a>' : '') : '')) : '') +
@@ -1415,6 +1424,8 @@
       (d.liquidadoPor || d.formaPago || d.factura || d.siigoError ? '<div class="tarjeta"><h2>Liquidación, cobro y factura</h2><dl class="datos">' +
         dato('Adicionales', esc(d.adicionales)) + dato('Forma de pago', esc(NOMBRES_PAGO[d.formaPago] || d.formaPago)) +
         dato('Liquidó', esc([d.liquidadoPor, d.fechaLiquidacion].filter(Boolean).join(' · '))) +
+        dato('Descuento', d.descuento ? '-' + pesos(d.descuento) + (d.descuentoTipo === 'PCT' ? ' (' + esc(d.descuentoValor) + ' %)' : '') : '') +
+        dato('Cuenta de cobro', d.cuentaCobroId ? '<a href="' + urlDrive(d.cuentaCobroId) + '" target="_blank">Ver PDF</a> · <a href="' + urlDescarga(d.cuentaCobroId) + '" target="_blank" download="Cuenta de cobro ' + esc(d.id) + '.pdf">' + ICON.descargar + ' Descargar</a>' : '') +
         dato('Valor recibido', d.valorRecibido != null ? pesos(d.valorRecibido) : '') + dato('Fecha de pago', esc(d.fechaPago)) + dato('Referencia', esc(d.referenciaPago)) +
         dato('Cobro', esc([d.cobradoPor, d.fechaCobro].filter(Boolean).join(' · '))) +
         dato('Factura Siigo', d.factura && !/^ENVIANDO/.test(d.factura) ? '<b>' + esc(d.factura) + '</b>' : '') +
@@ -1441,6 +1452,14 @@
     accion('aRevisar', function () { ejecutar(this, api('adminRevisar', d.id), d.enRetorno ? 'Retorno completado.' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro completado.' : 'Orden revisada: pasa a liquidación.'); });
     accion('aDevolver', function () { pedirTexto('Devolver al técnico', 'Motivo (el técnico lo verá en el historial)', function (t, m) { return api('adminDevolver', d.id, t).then(function (nd) { m.remove(); aviso('Orden devuelta al técnico.', 0, 'exito'); pintarDetalle(cont, nd); }); }); });
     accion('aLiquidar', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }); });
+    accion('aRevLiq', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }, { revisar: true }); });
+    accion('aLiqGa', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }, { revisar: true }); });
+    accion('aCuentaCobro', function () {
+      var bt = this;
+      confirmar('Se genera la cuenta de cobro de ' + d.id + ' por ' + pesos(d.total) + ' a nombre de Lucas Rafael Mejía Flórez, con su firma.' + (d.cuentaCobroId ? ' La anterior va a la papelera de Drive.' : ''), 'Generar').then(function (si) {
+        if (si) ejecutar(bt, api('adminCuentaCobro', d.id), 'Cuenta de cobro generada.');
+      });
+    });
     accion('aCobrar', function () { modalCobrar(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aFacturar', function () { var bt = this; confirmar('La orden ' + d.id + ' pasa a Por facturar.', 'Pasar a facturar').then(function (si) { if (si) ejecutar(bt, api('adminPasarAFacturar', d.id), 'Orden en Por facturar.'); }); });
     accion('aSiigo', function () {
@@ -1538,7 +1557,9 @@
     if (!d.items.length) return '<div class="vacio">Los ítems se llenan al liquidar' + (d.cotizacion ? ', con las líneas de la cotización ' + esc(d.cotizacion) : '') + '.</div>';
     return '<div class="tabla-scroll"><table><thead><tr><th>Código</th><th>Descripción</th><th class="ocultar-movil">Categoría</th><th class="der">Cant.</th><th class="der">Valor</th><th class="der">Subtotal</th></tr></thead><tbody>' +
       d.items.map(function (i) { return '<tr><td>' + esc(i.cod) + '</td><td>' + esc(i.desc) + '</td><td class="ocultar-movil">' + esc(i.cat) + '</td><td class="der">' + esc(i.cant) + '</td><td class="der">' + pesos(i.valor) + '</td><td class="der">' + pesos(i.subtotal) + '</td></tr>'; }).join('') +
-      '</tbody></table></div><div style="padding:14px 20px"><div class="totales"><div><span>Mano de obra</span><span>' + pesos(d.manoObra) + '</span></div><div><span>Materiales</span><span>' + pesos(d.materiales) + '</span></div><div><span>Transporte</span><span>' + pesos(d.transporte) + '</span></div><div class="t"><span>Total</span><span>' + pesos(d.total) + '</span></div></div></div>';
+      '</tbody></table></div><div style="padding:14px 20px"><div class="totales"><div><span>Mano de obra</span><span>' + pesos(d.manoObra) + '</span></div><div><span>Materiales</span><span>' + pesos(d.materiales) + '</span></div><div><span>Transporte</span><span>' + pesos(d.transporte) + '</span></div>' +
+      (d.descuento ? '<div><span>Descuento' + (d.descuentoTipo === 'PCT' ? ' (' + esc(d.descuentoValor) + ' %)' : '') + '</span><span>-' + pesos(d.descuento) + '</span></div>' : '') +
+      '<div class="t"><span>Total</span><span>' + pesos(d.total) + '</span></div></div></div>';
   }
 
   /** Enviar el soporte (PDF de la ODS) por WhatsApp o correo, con los datos que dejó el cliente. */
@@ -1740,7 +1761,9 @@
       '<label>Falla según el cliente</label><textarea id="oFalla">' + esc(pre.falla || '') + '</textarea></div>' +
       '<div class="tarjeta" id="oCotBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Cotización y orden de compra <span class="gris" style="font-size:13px;font-weight:600">· uso interno</span></h2><div class="fila dos"><div><label>Cotización Siigo</label><div class="con-boton"><input id="oCot" placeholder="Ej: C-1-25" value="' + esc(pre.cotizacion || '') + '"><button class="sec" id="oCotTraer" type="button">Traer de Siigo</button></div>' +
         '<p class="gris" id="oCotInfo" style="margin-top:4px">' + (pre.cotizacionTotal != null && pre.cotizacion ? 'Cotización ' + esc(pre.cotizacion) + ' · ' + esc(pre.cotizacionFecha || '') + ' · total ' + pesos(pre.cotizacionTotal) : 'Las líneas de la cotización pasan a los ítems al liquidar.') + '</p>' +
-        '<button class="link link-peligro" id="oCotQuitar" type="button"' + (pre.cotizacion ? '' : ' style="display:none"') + '>Quitar cotización</button></div>' +
+        '<button class="link link-peligro" id="oCotQuitar" type="button"' + (pre.cotizacion ? '' : ' style="display:none"') + '>Quitar cotización</button>' +
+        // Algunos clientes llevan dos o más cotizaciones (pedido de Samuel, 29/10/2026).
+        '<div id="oCotExtra"></div><button class="link" id="oCotMas" type="button" style="margin-top:6px">+ Agregar otra cotización</button></div>' +
         '<div><label>Orden de compra Siigo</label><div class="con-boton"><input id="oOcNum" placeholder="Ej: OC-1-31" value="' + esc(pre.oc ? pre.oc.numero : '') + '"><button class="sec" id="oOcCorreo" type="button">Traer del correo</button></div>' +
         '<p class="gris" id="oOcInfo" style="margin-top:4px">' + (pre.oc && pre.oc.id ? 'OC ' + esc(pre.oc.numero) + (pre.oc.tercero ? ' · ' + esc(pre.oc.tercero) : '') + ' · ' + (pre.oc.items || []).length + ' líneas' : pre.oc && pre.oc.archivoId ? 'OC ' + esc(pre.oc.numero) + ' con PDF adjunto.' : 'Escriba el número y use <b>Traer del correo</b> para adjuntar el PDF que Siigo envió.') + '</p>' +
         '<button class="link link-peligro" id="oOcQuitar" type="button"' + (pre.oc && pre.oc.numero ? '' : ' style="display:none"') + '>Quitar orden de compra</button></div></div>' +
@@ -1813,6 +1836,31 @@
       $('oOcInfo').textContent = editar ? 'Se quita de la orden al guardar los cambios (el PDF adjunto va a la papelera de Drive).' : 'Escriba el número y use Traer del correo para adjuntar el PDF que Siigo envió.';
       guardarBorrador();
     };
+    // Cotizaciones adicionales: cada fila con su número, Traer de Siigo y Quitar.
+    var cotExtra = (pre.cotizacionesExtra || []).map(function (c) { return Object.assign({}, c); });
+    function pintarCotExtra() {
+      $('oCotExtra').innerHTML = cotExtra.map(function (c, n) {
+        return '<div style="margin-top:10px"><label>Otra cotización Siigo</label><div class="con-boton"><input data-cx="' + n + '" placeholder="Ej: C-1-26" value="' + esc(c.numero || '') + '"><button class="sec" data-cxt="' + n + '" type="button">Traer de Siigo</button></div>' +
+          '<p class="gris" style="margin:4px 0">' + (c.items && c.items.length ? 'Cotización ' + esc(c.numero) + ' · ' + esc(c.fecha || '') + ' · total ' + pesos(c.total) + ' · ' + c.items.length + ' líneas.' : 'Escriba el número y tráigala de Siigo.') + ' <button class="link link-peligro" data-cxq="' + n + '" type="button">Quitar</button></p></div>';
+      }).join('');
+      $$('[data-cx]', $('oCotExtra')).forEach(function (i) { i.oninput = function () { var c = cotExtra[Number(i.getAttribute('data-cx'))]; if (c.numero !== i.value.trim()) { c.numero = i.value.trim(); c.items = []; c.id = ''; c.total = ''; c.fecha = ''; } guardarBorrador(); }; });
+      $$('[data-cxq]', $('oCotExtra')).forEach(function (b) { b.onclick = function () { cotExtra.splice(Number(b.getAttribute('data-cxq')), 1); pintarCotExtra(); guardarBorrador(); }; });
+      $$('[data-cxt]', $('oCotExtra')).forEach(function (b) {
+        b.onclick = function () {
+          var n = Number(b.getAttribute('data-cxt')), input = $('oCotExtra').querySelector('[data-cx="' + n + '"]'), num = input.value.trim();
+          if (!num) { marcarError(input, 'Escriba el número de la cotización.'); return; }
+          if (!F.cliente) { marcarError($('oBuscar'), 'Escoja primero el cliente.'); return; }
+          aviso('Buscando la cotización en Siigo…');
+          api('adminCotizacion', num, F.cliente.id).then(function (c) {
+            cotExtra[n] = { numero: c.numero, id: c.id || '', fecha: c.fecha || '', total: c.total, items: c.items || [] };
+            pintarCotExtra(); guardarBorrador(); aviso('Cotización ' + c.numero + ' relacionada.', 0, 'exito');
+          }).catch(function (e) { marcarError(input, e.message); aviso(e.message, 0, 'error'); });
+        };
+      });
+    }
+    $('oCotMas').onclick = function () { cotExtra.push({ numero: '', items: [] }); pintarCotExtra(); var l = $$('[data-cx]', $('oCotExtra')); if (l.length) l[l.length - 1].focus(); };
+    pintarCotExtra();
+    function datosCotExtra() { return cotExtra.filter(function (c) { return String(c.numero || '').trim(); }).map(function (c) { return { numero: c.numero, id: c.id || '', fecha: c.fecha || '', total: c.total == null ? '' : c.total, items: c.items || [] }; }); }
     function datosCot() {
       var num = $('oCot').value.trim();
       if (!num) return '';
@@ -2031,7 +2079,7 @@
         tecnico: $('oTec').value, apoyo: $('oTec').value ? valoresOpcion('oApoyo').filter(function (u) { return u !== $('oTec').value; }) : [], fechaProgramada: $('oFecha').value ? $('oFecha').value + ($('oHora').value ? ' ' + $('oHora').value : '') : '',
         pendDisponibilidad: $('oConf').checked, requierePermisos: $('oPerm').checked,
         contacto: $('oContacto').value.trim(), telefono: $('oTel').value.trim(), solicitud: $('oSolicitud').value.trim(),
-        cotizacion: datosCot(), oc: datosOC(),
+        cotizacion: datosCot(), cotizacionesExtra: datosCotExtra(), oc: datosOC(),
         obsInternas: $('oObsInt').value.trim(), fichas: $('oFichaOn').checked ? leerFichas($('oFichas'), AD.cat.fichaTareas) : []
       };
       if ($('oCaso')) datos.numeroCaso = $('oCaso').value.trim();
@@ -2070,6 +2118,7 @@
           contacto: pre.contacto || '', telefono: pre.telefono || '', solicitud: pre.solicitud || '', numeroCaso: pre.numeroCaso || '',
           obsInternas: pre.obsInternas || '', fichas: pre.fichas || [],
           cotizacion: pre.cotizacion ? { numero: pre.cotizacion, id: pre.cotizacionId || '', fecha: pre.cotizacionFecha || '', total: pre.cotizacionTotal == null ? '' : pre.cotizacionTotal, items: pre.cotizacionItems || [] } : '',
+          cotizacionesExtra: (pre.cotizacionesExtra || []).map(function (c) { return { numero: c.numero, id: c.id || '', fecha: c.fecha || '', total: c.total == null ? '' : c.total, items: c.items || [] }; }),
           oc: pre.oc ? { numero: pre.oc.numero, fecha: pre.oc.fecha || '', valor: pre.oc.valor == null ? '' : pre.oc.valor, id: pre.oc.id || '', tercero: pre.oc.tercero || '', items: pre.oc.items || [] } : '',
           trabajo: pre.trabajo || '', obs: pre.obs || '', recibeNombre: pre.recibeNombre || '', recibeDoc: pre.recibeDoc || '', estadoArtefacto: pre.estadoArtefacto || []
         };
@@ -2095,7 +2144,7 @@
       contacto: d.contacto, telefono: d.telefono, solicitud: d.solicitud, obsInternas: d.obsInternas, fichas: d.fichas || [],
       tipoOrden: d.tipoOrden, numeroCaso: d.numeroCaso, ocCorreo: d.ocCorreo || '',
       cotizacion: cot ? cot.numero : '', cotizacionId: cot ? cot.id : '', cotizacionFecha: cot ? cot.fecha : '',
-      cotizacionTotal: cot && cot.total !== '' && cot.total != null ? cot.total : null, cotizacionItems: cot ? cot.items : [],
+      cotizacionTotal: cot && cot.total !== '' && cot.total != null ? cot.total : null, cotizacionItems: cot ? cot.items : [], cotizacionesExtra: d.cotizacionesExtra || [],
       oc: oc ? { numero: oc.numero, fecha: oc.fecha, valor: oc.valor === '' ? null : oc.valor, id: oc.id, tercero: oc.tercero, items: oc.items || [] } : null
     };
   }
@@ -2379,9 +2428,12 @@
         '<tr><td></td><td><b>Total</b></td><td></td><td></td><td class="der"><b>' + pesos(suma(lineas)) + '</b></td></tr></tbody></table></div>';
     };
     var html = '';
-    if (d.cotizacion) {
-      html += '<h3>Cotización ' + esc(d.cotizacion) + (d.cotizacionFecha ? ' · ' + esc(d.cotizacionFecha) : '') + (d.cotizacionTotal != null ? ' · ' + pesos(d.cotizacionTotal) : '') + '</h3>' + tabla(d.cotizacionItems);
-      var cot = d.cotizacionItems || [];
+    if (d.cotizacion || (d.cotizacionesExtra || []).length) {
+      cotizacionesDe(d).forEach(function (c) {
+        html += '<h3>Cotización ' + esc(c.numero) + (c.fecha ? ' · ' + esc(c.fecha) : '') + (c.total != null && c.total !== '' ? ' · ' + pesos(c.total) : '') + '</h3>' + tabla(c.items);
+      });
+      // Con varias cotizaciones se compara contra todas sus líneas juntas.
+      var cot = lineasCotizadas(d);
       if (cot.length && !(actuales || []).length) html += '<p class="gris" style="margin:10px 0">La orden aún no tiene ítems: al liquidar arranca con estas líneas.</p>';
       else if (cot.length) {
         var clave = function (i) { return String(i.cod || i.desc || '').trim().toUpperCase(); };
@@ -2405,6 +2457,15 @@
     }
     return html;
   }
+
+  /** La cotización principal y las adicionales de la orden (un cliente puede llevar dos o más). */
+  function cotizacionesDe(d) {
+    var l = d.cotizacion ? [{ numero: d.cotizacion, fecha: d.cotizacionFecha || '', total: (d.cotizacionesExtra || []).length ? null : d.cotizacionTotal, items: d.cotizacionItems || [] }] : [];
+    if (l.length && (d.cotizacionesExtra || []).length) l[0].total = (d.cotizacionItems || []).reduce(function (a, i) { return a + Math.round(i.cant * i.valor); }, 0) || null;
+    return l.concat((d.cotizacionesExtra || []).map(function (c) { return { numero: c.numero, fecha: c.fecha || '', total: c.total === '' ? null : c.total, items: c.items || [] }; }));
+  }
+  function lineasCotizadas(d) { return cotizacionesDe(d).reduce(function (a, c) { return a.concat(c.items || []); }, []); }
+  function numerosCotizacion(d) { return cotizacionesDe(d).map(function (c) { return c.numero; }).join(', '); }
 
   /** La ODS guardada en Drive (última versión con anexo interno) y el PDF de cada retorno. */
   function tarjetaArchivo(d) {
@@ -2434,27 +2495,48 @@
     return t.length ? '<div class="nota-interna" style="margin-bottom:16px"><b>Revisar valores</b>' + t.join('<br>') + '</div>' : '';
   }
 
-  function modalLiquidar(d, listo) {
-    var m = modal('Liquidar ' + d.id,
+  function modalLiquidar(d, listo, opts) {
+    opts = opts || {};
+    var lineasCot = lineasCotizadas(d);
+    var m = modal((opts.revisar && d.estado === 'CERRADA_TECNICO' ? 'Revisar y liquidar garantía ' : 'Liquidar ') + d.id,
+      (opts.revisar && d.estado === 'CERRADA_TECNICO' ? '<p class="nota-interna" style="margin-top:0">Garantía: al guardar queda <b>revisada y liquidada</b> y pasa a Cobro.</p>' : '') +
       '<p class="gris">' + esc(d.cliente) + ' · ' + esc(NOMBRES_TIPO[d.tipoServicio] || '') + ' · ' + esc(nombreTarifa(d.tarifa)) + '</p>' +
       '<label>¿Se hizo algo adicional? ¿Queda algo extra por hacer?</label><textarea id="lqAdic">' + esc(d.adicionales || '') + '</textarea>' +
-      '<h3>Ítems y precio final</h3>' + (d.cotizacionTotal != null || (d.oc && d.oc.valor != null) ? '<p class="gris">' + [d.cotizacionTotal != null ? 'Cotizado (' + esc(d.cotizacion) + '): ' + pesos(d.cotizacionTotal) : '', d.oc && d.oc.valor != null ? 'OC ' + esc(d.oc.numero) + ': ' + pesos(d.oc.valor) : ''].filter(Boolean).join(' · ') + '</p>' : '') + '<div id="lqItems"></div>' +
-      ((d.cotizacionItems || []).length ? '<p style="margin:6px 0"><button class="sec" id="lqDeCot" type="button">Cargar líneas de la cotización ' + esc(d.cotizacion) + '</button></p>' : '') +
-      (d.cotizacion || d.oc ? '<details open class="comparar"><summary><b>Comparar con la cotización y la orden de compra</b></summary><div id="lqComp"></div></details>' : '') +
+      '<h3>Ítems y precio final</h3>' + (d.cotizacionTotal != null || (d.oc && d.oc.valor != null) ? '<p class="gris">' + [d.cotizacionTotal != null ? 'Cotizado (' + esc(numerosCotizacion(d)) + '): ' + pesos(d.cotizacionTotal) : '', d.oc && d.oc.valor != null ? 'OC ' + esc(d.oc.numero) + ': ' + pesos(d.oc.valor) : ''].filter(Boolean).join(' · ') + '</p>' : '') + '<div id="lqItems"></div>' +
+      (lineasCot.length ? '<p style="margin:6px 0"><button class="sec" id="lqDeCot" type="button">Cargar líneas de ' + (cotizacionesDe(d).length > 1 ? 'las cotizaciones ' : 'la cotización ') + esc(numerosCotizacion(d)) + '</button></p>' : '') +
+      // Descuento sobre el total (pedido de Samuel, 29/10/2026): porcentaje o valor en pesos.
+      '<div class="fila" style="align-items:end;margin-top:10px"><div><label>Descuento</label><select id="lqDescTipo"><option value="">Sin descuento</option><option value="PCT"' + (d.descuentoTipo === 'PCT' ? ' selected' : '') + '>Porcentaje (%)</option><option value="VALOR"' + (d.descuentoTipo === 'VALOR' ? ' selected' : '') + '>Valor en pesos ($)</option></select></div>' +
+      '<div><label id="lqDescEt">' + (d.descuentoTipo === 'VALOR' ? 'Valor del descuento' : 'Porcentaje') + '</label><input id="lqDescVal" type="number" min="0" step="any" value="' + esc(d.descuentoValor === '' || d.descuentoValor == null ? '' : d.descuentoValor) + '"' + (d.descuentoTipo ? '' : ' disabled') + '></div></div>' +
+      '<div class="totales" id="lqTotales" style="margin-top:8px"></div>' +
+      (d.cotizacion || (d.cotizacionesExtra || []).length || d.oc ? '<details open class="comparar"><summary><b>Comparar con la cotización y la orden de compra</b></summary><div id="lqComp"></div></details>' : '') +
       '<label>Forma de pago *</label>' + opciones('lqPago', AD.cat.formasPago, d.formaPago || '', false, NOMBRES_PAGO) +
       '<div class="acciones der"><button id="lqOk" class="ok">Liquidar</button></div><p id="lqMsg"></p>', 980);
     activarOpciones(m);
     // Si la orden aún no tiene ítems, arranca con las líneas de la cotización (la categoría sale de las tarifas).
     var deCotizacion = function () {
-      return (d.cotizacionItems || []).map(function (i) {
+      return lineasCot.map(function (i) {
         var t = AD.tarifas.filter(function (x) { return x.codigo === i.cod; })[0];
         return { cod: i.cod, desc: i.desc, cat: (t && t.categoria) || 'SERVICIO', cant: i.cant, valor: i.valor };
       });
     };
     var it = editorItems($('lqItems'), d.items.length ? d.items : deCotizacion(), function () { return d.tarifa; }, function () { return d.tipoServicio; });
     productosSiigo().then(function (l) { if (l.length && document.body.contains(m)) it.repintar(); });
+    var subtotal = function () { return it.valor().reduce(function (a, i) { return a + Math.round((Number(i.cant) || 0) * (Number(i.valor) || 0)); }, 0); };
+    var descuento = function () {
+      var t = $('lqDescTipo').value, v = Number($('lqDescVal').value) || 0, s = subtotal();
+      if (!t || !(v > 0)) return 0;
+      return t === 'PCT' ? Math.round(s * Math.min(v, 100) / 100) : Math.min(Math.round(v), s);
+    };
+    var pintarTotales = function () {
+      var s = subtotal(), ds = descuento();
+      $('lqTotales').innerHTML = (ds ? '<div><span>Subtotal</span><span>' + pesos(s) + '</span></div><div><span>Descuento</span><span>-' + pesos(ds) + '</span></div>' : '') + '<div class="t"><span>Total a liquidar</span><span>' + pesos(s - ds) + '</span></div>';
+    };
+    $('lqDescTipo').onchange = function () { $('lqDescVal').disabled = !this.value; $('lqDescEt').textContent = this.value === 'VALOR' ? 'Valor del descuento' : 'Porcentaje'; if (!this.value) $('lqDescVal').value = ''; pintarTotales(); };
+    $('lqDescVal').addEventListener('input', pintarTotales);
+    ['input', 'change', 'click'].forEach(function (ev) { $('lqItems').addEventListener(ev, function () { setTimeout(pintarTotales, 0); }); });
+    pintarTotales();
     if ($('lqDeCot')) $('lqDeCot').onclick = function () {
-      confirmar('Los ítems se reemplazan por las líneas originales de la cotización ' + d.cotizacion + '.', 'Reemplazar').then(function (si) { if (si) { it.poner(deCotizacion()); if ($('lqComp')) $('lqComp').innerHTML = comparativo(d, it.valor()); } });
+      confirmar('Los ítems se reemplazan por las líneas originales de ' + (cotizacionesDe(d).length > 1 ? 'las cotizaciones ' : 'la cotización ') + numerosCotizacion(d) + '.', 'Reemplazar').then(function (si) { if (si) { it.poner(deCotizacion()); if ($('lqComp')) $('lqComp').innerHTML = comparativo(d, it.valor()); pintarTotales(); } });
     };
     if ($('lqComp')) {
       var pintarComp = function () { $('lqComp').innerHTML = comparativo(d, it.valor()); };
@@ -2466,13 +2548,14 @@
       if (!pago) { $('lqMsg').innerHTML = '<span class="error">Escoja la forma de pago.</span>'; return; }
       // Factura electrónica con ítems libres (sin producto de Siigo): Cobro los crea en Siigo al facturar.
       var faltan = pago === 'FACTURA' ? itemsSinProducto(it.valor()) : [];
-      var total = it.valor().reduce(function (a, i) { return a + Math.round(i.cant * i.valor); }, 0);
+      if ($('lqDescTipo').value === 'PCT' && Number($('lqDescVal').value) > 100) { $('lqMsg').innerHTML = '<span class="error">El descuento no puede pasar del 100 %.</span>'; return; }
+      var total = subtotal() - descuento();
       var dif = [];
       if (d.cotizacionTotal != null && !mismoValor(total, d.cotizacionTotal)) dif.push('lo cotizado (' + pesos(d.cotizacionTotal) + ')');
       var seguir = function () {
         bt.disabled = true;
-        api('adminLiquidar', d.id, { items: it.valor(), adicionales: $('lqAdic').value, formaPago: pago })
-          .then(function (nd) { m.remove(); aviso('Orden liquidada: pasa a cobro.', 0, 'exito'); listo(nd); })
+        api(opts.revisar ? 'adminRevisarYLiquidar' : 'adminLiquidar', d.id, { items: it.valor(), adicionales: $('lqAdic').value, formaPago: pago, descuento: { tipo: $('lqDescTipo').value, valor: $('lqDescVal').value } })
+          .then(function (nd) { m.remove(); aviso(opts.revisar && d.estado === 'CERRADA_TECNICO' ? 'Garantía revisada y liquidada: pasa a cobro.' : 'Orden liquidada: pasa a cobro.', 0, 'exito'); listo(nd); })
           .catch(function (e) { $('lqMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
       };
       var avisoSiigo = faltan.length ? 'Estos ítems no tienen producto en Siigo: ' + faltan.map(function (i) { return i.desc || i.cod; }).join(', ') + '. Al facturar, Cobro los crea en Siigo con su descripción (o escoge uno que ya exista). ' : '';
@@ -2621,6 +2704,13 @@
     pintar();
   }
 
+  /** Filtro de Mercadeo por tipo de servicio prestado al cliente (pedido de Samuel, 29/10/2026). */
+  function selectTipoMer() {
+    return '<select id="mTipo" style="width:auto"><option value="">Todos los servicios</option>' + Object.keys(NOMBRES_TIPO).map(function (k) { return '<option value="' + k + '"' + (AD.merTipo === k ? ' selected' : '') + '>' + NOMBRES_TIPO[k] + '</option>'; }).join('') + '</select>';
+  }
+  function filtrarTipoMer(filas) { return AD.merTipo ? filas.filter(function (f) { return (f.tipos || []).indexOf(AD.merTipo) >= 0; }) : filas; }
+  var COL_TIPOS_MER = { t: 'Servicios prestados', k: 'tipos', movil: false, csv: function (f) { return (f.tipos || []).map(function (t) { return NOMBRES_TIPO[t] || t; }).join(', '); }, fmt: function (f) { return esc((f.tipos || []).map(function (t) { return NOMBRES_TIPO[t] || t; }).join(', ')); } };
+
   function botonesContacto(f) {
     return f.telefono ? '<a href="tel:' + esc(telLimpio(f.telefono)) + '">' + esc(f.telefono) + '</a> · <a href="' + urlWhatsapp(f.telefono) + '" target="_blank">WhatsApp</a>' : '<span class="gris">Sin teléfono</span>';
   }
@@ -2630,12 +2720,12 @@
     c.innerHTML = cargando('Calculando…');
     leer('mercadeoFijos', [{ dias: dias }], function (filas) {
       tablaSiigo(c, {
-        filas: filas, descargar: 'clientes-fijos.csv', vacio: 'No hay clientes fijos con servicio en este periodo. Se calcula con la frecuencia (meses) de cada equipo.',
-        herramientas: (puede('crear') ? '<button id="mfProgramar">Programar ahora</button>' : '') + '<select id="mfDias" style="width:auto">' + [15, 30, 60, 90].map(function (n) { return '<option value="' + n + '"' + (n === dias ? ' selected' : '') + '>Vencidos y próximos ' + n + ' días</option>'; }).join('') + '</select>',
+        filas: filtrarTipoMer(filas), descargar: 'clientes-fijos.csv', vacio: 'No hay clientes fijos con servicio en este periodo. Se calcula con la frecuencia (meses) de cada equipo.',
+        herramientas: (puede('crear') ? '<button id="mfProgramar">Programar ahora</button>' : '') + '<select id="mfDias" style="width:auto">' + [15, 30, 60, 90].map(function (n) { return '<option value="' + n + '"' + (n === dias ? ' selected' : '') + '>Vencidos y próximos ' + n + ' días</option>'; }).join('') + '</select>' + selectTipoMer(),
         columnas: [
           { t: 'Cliente', k: 'cliente', fmt: function (f) { return '<b>' + esc(f.cliente) + '</b><div class="gris">' + esc(f.sede) + '</div>'; } },
           { t: 'Contacto', k: 'telefono', fmt: botonesContacto },
-          { t: 'Equipos', k: 'equipos', der: true, movil: false }, { t: 'Frecuencia', k: 'frecuencia', movil: false },
+          { t: 'Equipos', k: 'equipos', der: true, movil: false }, { t: 'Frecuencia', k: 'frecuencia', movil: false }, COL_TIPOS_MER,
           { t: 'Último servicio', k: 'ultimo' },
           { t: 'Le toca', k: 'proximo', fmt: function (f) { return f.vencido ? '<span class="error"><b>' + esc(f.proximo || 'Sin fecha') + '</b></span>' : esc(f.proximo); } },
           { t: '', k: 'odsAbierta', csv: function (f) { return f.odsAbierta; }, fmt: function (f) { return f.odsAbierta ? '<a href="#orden/' + encodeURIComponent(f.odsAbierta) + '">' + esc(f.odsAbierta) + '</a>' : (puede('crear') ? '<button class="sec" data-crear="' + esc(f.idCliente) + '|' + esc(f.idSede) + '">Crear ODS</button>' : ''); } }
@@ -2643,6 +2733,7 @@
         alPintar: function (raiz) { activarCrearDesde(raiz); }
       });
       $('mfDias').onchange = function () { AD.merDias = Number(this.value); mercadeoFijos(c); };
+      $('mTipo').onchange = function () { AD.merTipo = this.value; mercadeoFijos(c); };
       if ($('mfProgramar')) $('mfProgramar').onclick = function () {
         api('mercadeoProgramarAhora').then(function (r) { aviso(r.creadas.length ? 'Se crearon ' + r.creadas.length + ' orden(es) por confirmar: ' + r.creadas.join(', ') : 'No hay clientes fijos pendientes por programar.', 0, 'exito'); mercadeoFijos(c); }).catch(function (e) { aviso(e.message, 0, 'error'); });
       };
@@ -2654,19 +2745,20 @@
     c.innerHTML = cargando('Calculando…');
     leer('mercadeoReactivacion', [{ meses: meses, incluirInactivos: inact }], function (filas) {
       tablaSiigo(c, {
-        filas: filas, descargar: 'reactivacion.csv', vacio: 'No hay clientes en este rango.',
+        filas: filtrarTipoMer(filas), descargar: 'reactivacion.csv', vacio: 'No hay clientes en este rango.',
         herramientas: '<select id="mrMeses" style="width:auto">' + [3, 6, 12, 24].map(function (n) { return '<option value="' + n + '"' + (n === meses ? ' selected' : '') + '>Sin servicio hace ' + n + '+ meses</option>'; }).join('') + '</select>' +
-          '<label class="chk" style="margin:0"><input type="checkbox" id="mrInact"' + (inact ? ' checked' : '') + '> Incluir inactivos</label>',
+          '<label class="chk" style="margin:0"><input type="checkbox" id="mrInact"' + (inact ? ' checked' : '') + '> Incluir inactivos</label>' + selectTipoMer(),
         columnas: [
           { t: 'Cliente', k: 'cliente', fmt: function (f) { return '<a href="#cliente/' + encodeURIComponent(f.idCliente) + '"><b>' + esc(f.cliente) + '</b></a><div class="gris">NIT ' + esc(f.nit) + ' · ' + esc(f.ciudad) + '</div>'; } },
           { t: 'Contacto', k: 'telefono', fmt: botonesContacto },
-          { t: 'Último servicio', k: 'ultimo' }, { t: 'Meses', k: 'meses', der: true }, { t: 'Grupo', k: 'grupo', movil: false },
+          { t: 'Último servicio', k: 'ultimo' }, { t: 'Meses', k: 'meses', der: true }, { t: 'Grupo', k: 'grupo', movil: false }, COL_TIPOS_MER,
           { t: '', k: 'odsAbierta', csv: function (f) { return f.odsAbierta; }, fmt: function (f) { return f.odsAbierta ? '<a href="#orden/' + encodeURIComponent(f.odsAbierta) + '">' + esc(f.odsAbierta) + '</a>' : (puede('crear') ? '<button class="sec" data-crear="' + esc(f.idCliente) + '|">Crear ODS</button>' : ''); } }
         ],
         alPintar: function (raiz) { activarCrearDesde(raiz); }
       });
       $('mrMeses').onchange = function () { AD.merMeses = Number(this.value); mercadeoReact(c); };
       $('mrInact').onchange = function () { AD.merInact = this.checked; mercadeoReact(c); };
+      $('mTipo').onchange = function () { AD.merTipo = this.value; mercadeoReact(c); };
     }).catch(function (e) { errorEn(c, e); });
   }
 
