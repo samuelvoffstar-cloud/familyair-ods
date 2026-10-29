@@ -1615,7 +1615,7 @@
 
   /** Enviar el soporte (PDF de la ODS) por WhatsApp o correo, con los datos que dejó el cliente. */
   function modalSoporte(d, listo) {
-    var m = modal('Enviar soporte · ' + d.id, cargando('Generando el PDF de la orden…'), 620);
+    var m = modal('Enviar soporte · ' + d.id, '<p class="gris" style="margin-top:0">Preparando el PDF de la orden. Si la orden cambió desde la última vez, se arma de nuevo y tarda unos segundos.</p>' + cargando('Generando el PDF de la orden…'), 620);
     api('adminSoporte', d.id).then(function (r) {
       m.querySelector('.cuerpo').innerHTML =
         '<p style="margin-top:0">PDF generado. <a href="' + urlDrive(r.pdfId) + '" target="_blank">Ver PDF</a> · <a href="' + urlDescarga(r.pdfId) + '" target="_blank" download="' + esc(d.id) + '.pdf">' + ICON.descargar + ' Descargar</a>' + (r.enviado ? '<br><span class="gris">Ya enviado: ' + esc(r.enviado).replace(/\n/g, ' / ') + '</span>' : '') + '</p>' +
