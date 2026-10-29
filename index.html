@@ -754,7 +754,7 @@
   }
 
   // ---------- Carga rápida: lo último que se vio aparece al instante y se actualiza detrás ----------
-  var VISTAS = {}, TURNO = 0, MAX_VISTAS = 40;
+  var VISTAS = {}, TURNO = 0, MAX_VISTAS = 40, INIT_RECIEN = 0, PRE_TEC = null;
   function claveVista(fn, args) { return fn + JSON.stringify(args || []); }
   function guardarVista(fn, args, r) {
     var k = claveVista(fn, args);
@@ -784,7 +784,10 @@
     var v = VISTAS[claveVista(fn, args)];
     if (copia != null && v && Date.now() - v.t < 5000) { pintar(copia, false); return Promise.resolve(copia); }
     if (copia != null) pintar(copia, true);
-    return llamar(fn, args, false).then(function (r) {
+    // Si ya se estaba trayendo (precarga al pasar el mouse), se espera esa misma respuesta en vez de pedirla otra vez.
+    var k = claveVista(fn, args), desde = Date.now(), enCurso = PRECARGAS[k];
+    var pedido = enCurso ? enCurso.then(function () { var x = VISTAS[k]; return x && x.t >= desde - 30000 && x.t > 0 ? x.r : llamar(fn, args, false); }) : llamar(fn, args, false);
+    return pedido.then(function (r) {
       guardarVista(fn, args, r);
       if (turno === TURNO && JSON.stringify(r) !== antes) pintar(r, false);
       return r;
@@ -794,12 +797,23 @@
     });
   }
   /** Trae en segundo plano algo que probablemente se va a abrir (al pasar el mouse o tocar una fila). */
-  var PRECARGAS = {};
-  function precargar(fn, args) {
+  var PRECARGAS = {}, COLA_PRECARGAS = [];
+  /**
+   * Máximo 3 precargas a la vez: no le quitan turno a lo que la persona sí abrió. Con enCola, lo que no cabe espera
+   * su turno (secciones del arranque); sin ella se descarta (pasar el mouse por encima). luego(r) recibe la respuesta.
+   */
+  function precargar(fn, args, enCola, luego) {
     var k = claveVista(fn, args);
-    // Máximo 3 precargas a la vez: no le quitan turno a lo que la persona sí abrió.
-    if ((VISTAS[k] && Date.now() - VISTAS[k].t < 30000) || PRECARGAS[k] || Object.keys(PRECARGAS).length >= 3) return;
-    PRECARGAS[k] = llamar(fn, args, false).then(function (r) { guardarVista(fn, args, r); }, function () {}).then(function () { delete PRECARGAS[k]; });
+    if ((VISTAS[k] && Date.now() - VISTAS[k].t < 30000) || PRECARGAS[k]) return;
+    if (Object.keys(PRECARGAS).length >= 3) {
+      if (enCola && !COLA_PRECARGAS.some(function (x) { return x.k === k; })) COLA_PRECARGAS.push({ k: k, fn: fn, args: args, luego: luego });
+      return;
+    }
+    PRECARGAS[k] = llamar(fn, args, false).then(function (r) { guardarVista(fn, args, r); if (luego) { try { luego(r); } catch (e) { /* solo precarga */ } } }, function () {}).then(function () {
+      delete PRECARGAS[k];
+      var sig = COLA_PRECARGAS.shift();
+      if (sig) precargar(sig.fn, sig.args, true, sig.luego);
+    });
   }
 
   /**
@@ -897,7 +911,13 @@
     if (mal) return;
     $('btnIngresar').disabled = true;
     apiSinToken('login', $('lUsuario').value, $('lPin').value).then(function (s) {
-      SES = s; guardarLocal('fa_ses', s); arrancar();
+      // El ingreso trae lo primero que se pinta (datos del panel, inicio, servicios del técnico): un viaje por cada uno menos.
+      var pre = s.pre || {}; delete s.pre;
+      SES = s; guardarLocal('fa_ses', s);
+      if (pre.adminInit) { guardarLocal('fa_init_' + s.usuario, pre.adminInit); INIT_RECIEN = Date.now(); }
+      if (pre.adminResumen) guardarVista('adminResumen', [], pre.adminResumen);
+      if (pre.tecInit) PRE_TEC = pre.tecInit;
+      arrancar();
     }).catch(function (e) {
       $('lError').textContent = e.message;
     }).then(function () { if ($('btnIngresar')) $('btnIngresar').disabled = false; });
@@ -1034,14 +1054,23 @@
       vigilarCambios();
       ir(location.hash ? location.hash.slice(1) : 'inicio');
       // Mientras se mira la primera pantalla, se traen las secciones que esa persona usa: al abrirlas ya están.
+      // Todas las secciones de su menú (en cola, 3 a la vez) y el detalle de las primeras órdenes de su bandeja de trabajo.
       setTimeout(function () {
-        precargar('adminListar', [{}]);
-        if (puede('revisar')) precargar('adminListar', [{ estados: ['CERRADA_TECNICO'] }]);
-        if (puede('liquidar')) precargar('adminListar', [{ estados: ['REVISADA'] }]);
-        if (puede('cobrar')) precargar('adminListar', [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }]);
+        var detalles = function (l) { (l || []).slice(0, 5).forEach(function (o) { precargar('adminDetalle', [o.id], true); }); };
+        precargar('adminListar', [{}], true, detalles);
+        if (puede('revisar')) precargar('adminListar', [{ estados: ['CERRADA_TECNICO'] }], true, detalles);
+        if (puede('liquidar')) precargar('adminListar', [{ estados: ['REVISADA'] }], true, detalles);
+        if (puede('cobrar')) precargar('adminListar', [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }], true);
+        if (puede('retorno')) precargar('adminListar', [{ retorno: true }], true);
+        if (puede('mercadeo')) precargar('mercadeoFijos', [{ dias: AD.merDias || 30 }], true);
+        if (puede('informes')) precargar('informesListar', [], true);
+        if (puede('finanzas')) precargar('adminDashboard', [(AD.finanzas && AD.finanzas.meses) || 12], true);
+        if (puede('liquidar')) precargar('adminListar', [{ estados: ['LIQUIDADA'] }], true);
       }, 1500);
     };
     if (copia && copia.sesion) { aplicar(copia); empezar(); }
+    // Recién traído con el ingreso: no se vuelve a pedir.
+    if (copia && copia.sesion && Date.now() - INIT_RECIEN < 60000) { INIT_RECIEN = 0; window.onhashchange = function () { var h = location.hash.slice(1); if (h && h !== AD.ruta) ir(h, true); }; return; }
     // Si la lista de clientes no cambió desde la copia, el servidor no la vuelve a enviar.
     api('adminInit', copia && copia.clientes && copia.genClientes ? copia.genClientes : '').then(function (r) {
       if (r.clientes === null) r.clientes = copia.clientes;
@@ -1316,8 +1345,30 @@
     leer('adminDetalle', [id], function (d) { pintarDetalle(cont, d); }).catch(function (e) { errorEn(cont, e); });
   }
 
+  /**
+   * Después de una acción, las listas guardadas ya muestran la orden con su estado nuevo: al volver a Revisión,
+   * Liquidación o Cobro no aparece por un momento donde ya no está. El servidor confirma detrás como siempre.
+   */
+  function corregirListas(d) {
+    var u = SES.usuario, idx = leerLocal('fa_vidx_' + u) || [];
+    Object.keys(VISTAS).concat(idx).filter(function (k, i, a) { return k.indexOf('adminListar[') === 0 && a.indexOf(k) === i; }).forEach(function (k) {
+      var filas = VISTAS[k] ? VISTAS[k].r : leerLocal('fa_v_' + u + '_' + k);
+      if (!Array.isArray(filas)) return;
+      var i = -1; for (var j = 0; j < filas.length; j++) if (filas[j].id === d.id) { i = j; break; }
+      if (i < 0) return;
+      var f = {}; try { f = JSON.parse(k.slice('adminListar'.length))[0] || {}; } catch (e) { return; }
+      var est = f.estados || (f.estado ? [f.estado] : null);
+      if (est && est.length && est.indexOf(d.estado) < 0) filas.splice(i, 1);
+      else ['estado', 'total', 'formaPago', 'tecnico', 'tecnicoNombre', 'fechaProgramada', 'cliente', 'sede'].forEach(function (c) { if (d[c] !== undefined) filas[i][c] = d[c]; });
+      if (VISTAS[k]) VISTAS[k].r = filas;
+      try { guardarLocal('fa_v_' + u + '_' + k, filas); } catch (e) { /* sin espacio */ }
+    });
+  }
+
   function pintarDetalle(cont, d) {
+    var previa = copiaVista('adminDetalle', [d.id]);
     guardarVista('adminDetalle', [d.id], d);
+    if (!previa || previa.estado !== d.estado || previa.total !== d.total || previa.tecnico !== d.tecnico || previa.fechaProgramada !== d.fechaProgramada) corregirListas(d);
     AD.orden = d;
     document.querySelector('.titulo-pag').innerHTML = '<h1>' + esc(d.id) + ' ' + chipEstado(d.estado) + marcasOrden(d) + '</h1><div class="acciones" id="dAcc" style="margin:0"></div>';
     var acc = [];
@@ -2319,12 +2370,11 @@
    * tiene producto se escoge o se crea. Después corre accion().
    */
   function prepararSiigo(d, accion, textoBoton) {
-    var productos = function () {
-      api('adminItemsSiigo', d.id).then(function (r) { if (r.faltan && r.faltan.length) modalProductosSiigo(d, r, accion, textoBoton); else accion(); })
-        .catch(function (e) { aviso(e.message, 0, 'error'); });
-    };
-    api('adminClienteSiigo', d.id).then(function (c) { if (c.existe || !c.conectado) productos(); else modalClienteSiigo(d, c, productos); })
-      .catch(function (e) { aviso(e.message, 0, 'error'); });
+    // Cliente y productos se revisan en una sola consulta.
+    api('adminPrepararSiigo', d.id).then(function (r) {
+      var productos = function () { if (r.items.faltan && r.items.faltan.length) modalProductosSiigo(d, r.items, accion, textoBoton); else accion(); };
+      if (r.cliente.existe || !r.cliente.conectado) productos(); else modalClienteSiigo(d, r.cliente, productos);
+    }).catch(function (e) { aviso(e.message, 0, 'error'); });
   }
 
   /** El valor liquidado (sin IVA) coincide con otro que puede venir sin IVA o con IVA (cotizaciones guardadas antes de esta corrección). */
@@ -3356,6 +3406,8 @@
     T.actual = null; clearInterval(T.relojSync);
     var clave = claveCopia('init'), fresco = false;
     $('vistaTec').innerHTML = cargando('Cargando sus servicios…');
+    // Recién traídos con el ingreso: se pintan de una vez, sin otra consulta.
+    if (PRE_TEC) { var r0 = PRE_TEC; PRE_TEC = null; BD.guardar(clave, r0); pintarLista(r0, false); precargarOrdenes(r0); return; }
     BD.leer(clave).then(function (c) { if (c && !fresco && !T.actual) pintarLista(c, true); });
     apiTec('tecInit').then(function (r) {
       fresco = true; BD.guardar(clave, r);
