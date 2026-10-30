@@ -1395,7 +1395,7 @@
       if (!d.cotizacionId) b('aCotSiigo', 'Crear cotización en Siigo', d.estado === 'POR_FACTURAR' ? 'ok' : 'sec');
       b('aRegOC', d.ocNumero ? 'Cambiar orden de compra' : 'Registrar orden de compra', d.ocNumero ? 'sec' : (d.cotizacionId ? 'ok' : 'sec'));
     }
-    if (d.estado === 'POR_FACTURAR' && puede('cobrar') && !d.esperandoOC) { if (!d.siigoId) b('aSiigo', 'Enviar a Siigo', 'sec'); b('aFacturaOk', 'Factura terminada', 'ok'); }
+    if (d.estado === 'POR_FACTURAR' && puede('cobrar') && !d.esperandoOC) { if (!d.siigoId) { if (d.desdeCotizacion) b('aVincular', 'Facturar desde la cotización', 'sec'); else b('aSiigo', 'Enviar a Siigo', 'sec'); } b('aFacturaOk', 'Factura terminada', 'ok'); }
     if (d.estado === 'COMPLETADA' && puede('retorno')) b('aRetorno', 'Retorno', 'sec');
     if (['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('soporte')) b('aSoporte', ICON.wa + (esCobro(d) ? ' Enviar cobro' : ' Enviar soporte'), d.estado === 'CERRADA_TECNICO' || d.soporteEnviado ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
@@ -1526,6 +1526,7 @@
         prepararSiigo(d, function () { ejecutar(bt, api('adminEnviarSiigo', d.id), 'Factura creada en Siigo. Revísela y termínela allá.'); }, 'Guardar y enviar a Siigo');
       });
     });
+    accion('aVincular', function () { modalVincularFactura(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aCotSiigo', function () {
       var bt = this;
       confirmar('Se creará en Siigo la cotización de ' + d.id + ' para ' + d.cliente + ' por ' + pesos(d.total) + ' + IVA, con los ítems liquidados. Después envíela al cliente desde Siigo.', 'Crear cotización').then(function (si) {
@@ -2562,6 +2563,37 @@
   }
 
   /** La cotización principal y las adicionales de la orden (un cliente puede llevar dos o más). */
+  /**
+   * Orden con cotización (decisión de Samuel, 30/10/2026): Cobro factura en Siigo desde la cotización para que queden
+   * relacionadas (la API de Siigo no lo permite) y aquí vincula la factura con su número.
+   */
+  function modalVincularFactura(d, listo) {
+    var cobrados = (d.items || []).filter(function (i) { return i.cat !== 'TRANSPORTE'; });
+    var m = modal('Facturar desde la cotización ' + d.cotizacion,
+      '<ol style="margin-top:0;padding-left:20px;line-height:1.6">' +
+      '<li>En Siigo abra la cotización <b>' + esc(d.cotizacion) + '</b> y dé <b>Facturar</b>.</li>' +
+      '<li>Deje la factura igual a lo liquidado: <b>' + pesos(d.total) + ' + IVA</b>' + (d.descuento ? ' (con el descuento de ' + pesos(d.descuento) + ')' : '') + '. Abajo están las diferencias con la cotización.' +
+      (d.ocNumero ? ' Agregue la orden de compra <b>' + esc(d.ocNumero) + '</b> como documento de referencia.' : '') + ' Revise que quede igual a lo liquidado antes de enviarla a la DIAN: después solo se corrige con nota crédito.</li>' +
+      '<li>Escriba aquí el número de la factura y dé <b>Vincular</b>.</li></ol>' +
+      '<label>Número de la factura de Siigo</label><input id="vfNum" placeholder="Ej: FV-2-35" autocomplete="off">' +
+      '<div class="acciones der"><button id="vfOk" class="ok">Vincular</button></div><p id="vfMsg"></p>' +
+      '<details open class="comparar"><summary><b>Cotización y diferencias con lo liquidado</b></summary>' + comparativo(d, cobrados) + '</details>', 820);
+    var enviar = function (confirmado) {
+      var bt = $('vfOk'), num = $('vfNum').value.trim();
+      if (!num) { $('vfMsg').innerHTML = '<span class="error">Escriba el número de la factura.</span>'; $('vfNum').focus(); return; }
+      bt.disabled = true; $('vfMsg').innerHTML = '<span class="gris">Buscando la factura en Siigo…</span>';
+      api('adminVincularFactura', d.id, num, confirmado).then(function (r) {
+        if (r && r.confirmar) {
+          bt.disabled = false; $('vfMsg').innerHTML = '';
+          return confirmar(r.mensaje + ' Revise la factura en Siigo antes de vincularla.', 'Vincular así').then(function (si) { if (si) enviar(true); });
+        }
+        m.remove(); aviso('Factura ' + (r.factura || num) + ' vinculada. Termínela en Siigo y marque "Factura terminada".', 0, 'exito'); listo(r);
+      }).catch(function (e) { $('vfMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+    };
+    $('vfOk').onclick = function () { enviar(false); };
+    $('vfNum').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') enviar(false); });
+  }
+
   function cotizacionesDe(d) {
     var l = d.cotizacion ? [{ numero: d.cotizacion, fecha: d.cotizacionFecha || '', total: (d.cotizacionesExtra || []).length ? null : d.cotizacionTotal, items: d.cotizacionItems || [] }] : [];
     if (l.length && (d.cotizacionesExtra || []).length) l[0].total = (d.cotizacionItems || []).reduce(function (a, i) { return a + Math.round(i.cant * i.valor); }, 0) || null;
@@ -2744,7 +2776,7 @@
       if (!AD.tabCobro) { var primera = TABS.filter(function (t) { return grupos[t[0]].length; })[0]; if (primera) tab = primera[0]; }
       var pintar = function () {
         cont.innerHTML = '<div class="pestanas">' + TABS.map(function (t) { return '<button data-t="' + t[0] + '" class="' + (t[0] === tab ? 'activo' : '') + '">' + t[1] + ' <span class="cuenta">' + grupos[t[0]].length + '</span></button>'; }).join('') + '</div>' +
-          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago. Con Anotar deje el seguimiento: cuándo se le escribió y qué respondió.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Envíe a Siigo (queda sin enviar a la DIAN), termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
+          '<p class="gris" style="margin-top:0">' + ({ EFECTIVO: 'Abra la orden y use "Registrar pago y completar".', TRANSFERENCIA: 'Abra la orden, registre la referencia de la transferencia y complétela.', PENDIENTE: 'Cuando el cliente pague, abra la orden y registre el pago. Con Anotar deje el seguimiento: cuándo se le escribió y qué respondió.', FACTURA: 'Abra la orden y use "Pasar a facturar".', ESPERANDO_OC: 'Clientes que facturan con orden de compra: cree la cotización en Siigo, envíela y, cuando llegue la OC, regístrela en la orden.', POR_FACTURAR: 'Sin cotización: Envíe a Siigo (queda sin enviar a la DIAN). Con cotización: facture en Siigo desde la cotización y vincule la factura en la orden. Después termine la factura en Siigo y marque "Factura terminada".', COMPLETADAS: 'Órdenes completadas este mes.' })[tab] + '</p><div id="t"></div>';
         $$('.pestanas button', cont).forEach(function (b) { b.onclick = function () { tab = AD.tabCobro = b.getAttribute('data-t'); pintar(); }; });
         var cols = [COL.numero, COL.cliente, COL.tipo, COL.cierre];
         // Esperando OC: la cotización y la OC se manejan desde la bandeja, sin abrir la orden.
