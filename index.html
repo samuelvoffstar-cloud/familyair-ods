@@ -1058,8 +1058,8 @@
       setTimeout(function () {
         var detalles = function (l) { (l || []).slice(0, 5).forEach(function (o) { precargar('adminDetalle', [o.id], true); }); };
         precargar('adminListar', [{}], true, detalles);
-        if (puede('revisar')) precargar('adminListar', [{ estados: ['CERRADA_TECNICO'] }], true, detalles);
-        if (puede('liquidar')) precargar('adminListar', [{ estados: ['REVISADA'] }], true, detalles);
+        if (puede('revisar')) precargar('adminListar', [{ bandeja: 'REVISION' }], true, detalles);
+        if (puede('liquidar')) precargar('adminListar', [{ bandeja: 'LIQUIDACION' }], true, detalles);
         if (puede('cobrar')) precargar('adminListar', [{ estados: ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'] }], true);
         if (puede('retorno')) precargar('adminListar', [{ retorno: true }], true);
         if (puede('mercadeo')) precargar('mercadeoFijos', [{ dias: AD.merDias || 30 }], true);
@@ -1247,11 +1247,11 @@
     var cont = pagina('Inicio');
     leer('adminResumen', [], function (r) {
       var c = r.conteo;
-      var kp = [['PROGRAMADA', 'Programadas', 'ordenes'], ['EN_CURSO', 'En curso', 'ordenes'], ['EN_PAUSA', 'En pausa', 'ordenes'], ['CERRADA_TECNICO', 'Por revisar', 'revision'],
-        ['REVISADA', 'Por liquidar', 'liquidacion'], ['LIQUIDADA', 'Por cobrar', 'cobro'], ['POR_FACTURAR', 'Por facturar', 'cobro'], ['COMPLETADA', 'Completadas', 'ordenes']];
+      var kp = [['PROGRAMADA', 'Programadas', 'ordenes'], ['EN_CURSO', 'En curso', 'ordenes'], ['EN_PAUSA', 'En pausa', 'ordenes'], ['BANDEJA_REVISION', 'Por revisar', 'revision'],
+        ['BANDEJA_LIQUIDACION', 'Por liquidar', 'liquidacion'], ['LIQUIDADA', 'Por cobrar', 'cobro'], ['POR_FACTURAR', 'Por facturar', 'cobro'], ['COMPLETADA', 'Completadas', 'ordenes']];
       var alertas = r.porConfirmar.length + r.permisos.length + r.sinTecnico.length;
       $('nAlertas').style.display = alertas ? 'flex' : 'none'; $('nAlertas').textContent = alertas;
-      [['revision', c.CERRADA_TECNICO], ['liquidacion', c.REVISADA], ['cobro', c.LIQUIDADA + c.POR_FACTURAR]].forEach(function (x) {
+      [['revision', c.BANDEJA_REVISION !== undefined ? c.BANDEJA_REVISION : c.CERRADA_TECNICO], ['liquidacion', c.BANDEJA_LIQUIDACION !== undefined ? c.BANDEJA_LIQUIDACION : c.REVISADA], ['cobro', c.LIQUIDADA + c.POR_FACTURAR]].forEach(function (x) {
         var el = document.querySelector('[data-cuenta="' + x[0] + '"]'); if (el) { el.style.display = x[1] ? '' : 'none'; el.textContent = x[1]; }
       });
       var bor = leerLocal('fa_borrador_orden_' + SES.usuario);
@@ -1358,11 +1358,17 @@
       if (i < 0) return;
       var f = {}; try { f = JSON.parse(k.slice('adminListar'.length))[0] || {}; } catch (e) { return; }
       var est = f.estados || (f.estado ? [f.estado] : null);
-      if (est && est.length && est.indexOf(d.estado) < 0) filas.splice(i, 1);
+      if ((est && est.length && est.indexOf(d.estado) < 0) || (f.bandeja && !enBandeja(d, f.bandeja))) filas.splice(i, 1);
       else ['estado', 'total', 'formaPago', 'tecnico', 'tecnicoNombre', 'fechaProgramada', 'cliente', 'sede'].forEach(function (c) { if (d[c] !== undefined) filas[i][c] = d[c]; });
       if (VISTAS[k]) VISTAS[k].r = filas;
       try { guardarLocal('fa_v_' + u + '_' + k, filas); } catch (e) { /* sin espacio */ }
     });
+  }
+
+  /** Igual que enBandeja_ del servidor: las garantías revisadas sin liquidar van en Revisión, no en Liquidación. */
+  function enBandeja(o, b) {
+    var ga = o.estado === 'REVISADA' && o.tipoOrden === 'GARANTIA' && !o.enRetorno;
+    return b === 'REVISION' ? (o.estado === 'CERRADA_TECNICO' || ga) : b === 'LIQUIDACION' ? (o.estado === 'REVISADA' && !ga) : true;
   }
 
   function pintarDetalle(cont, d) {
@@ -2649,8 +2655,8 @@
   // ================= REVISIÓN, LIQUIDACIÓN, COBRO, RETORNOS =================
   function vistaRevision() {
     var cont = pagina('Revisión');
-    leer('adminListar', [{ estados: ['CERRADA_TECNICO'] }], function (filas) {
-      cont.innerHTML = '<p class="gris" style="margin-top:0">Servicios completados por los técnicos. Abra cada uno, revise fotos, firma y trabajo, y márquelo como revisado.</p><div id="t"></div>';
+    leer('adminListar', [{ bandeja: 'REVISION' }], function (filas) {
+      cont.innerHTML = '<p class="gris" style="margin-top:0">Servicios completados por los técnicos. Abra cada uno, revise fotos, firma y trabajo, y márquelo como revisado. Las garantías se revisan y se liquidan aquí mismo.</p><div id="t"></div>';
       tablaSiigo($('t'), { filas: filas, descargar: 'revision.csv', vacio: 'No hay servicios por revisar.', alClic: function (o) { ir('orden/' + o.id); },
         columnas: [COL.numero, COL.cierre, COL.cliente, COL.tipo, COL.tecnico,
           { t: 'Soporte', k: 'soporteEnviado', fmt: function (o) { return o.soporteEnviado ? '<span class="exito">Enviado</span>' : '<span class="gris">Sin enviar</span>'; }, csv: function (o) { return o.soporteEnviado ? 'Enviado' : ''; } }, COL.total] });
@@ -2663,7 +2669,7 @@
     var pintar = function () {
       cont.innerHTML = '<div class="pestanas"><button data-t="REVISADA">Por liquidar</button><button data-t="LIQUIDADA">Liquidadas, esperando cobro</button></div><div id="t">' + cargando('Cargando…') + '</div>';
       $$('.pestanas button', cont).forEach(function (b) { b.className = b.getAttribute('data-t') === tab ? 'activo' : ''; b.onclick = function () { tab = AD.tabLiq = b.getAttribute('data-t'); pintar(); }; });
-      leer('adminListar', [{ estados: [tab] }], function (filas) {
+      leer('adminListar', [tab === 'REVISADA' ? { bandeja: 'LIQUIDACION' } : { estados: [tab] }], function (filas) {
         tablaSiigo($('t'), { filas: filas, descargar: 'liquidacion.csv', vacio: tab === 'REVISADA' ? 'No hay órdenes por liquidar.' : 'No hay órdenes liquidadas pendientes.', alClic: function (o) { ir('orden/' + o.id); },
           columnas: [COL.numero, COL.cierre, COL.cliente, COL.tipo, COL.tecnico].concat(tab === 'LIQUIDADA' ? [COL.pago] : []).concat([COL.total]) });
       }).catch(function (e) { errorEn($('t'), e); });
