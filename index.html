@@ -1634,7 +1634,7 @@
         '<p style="margin-top:0">PDF generado. <a href="' + urlDrive(r.pdfId) + '" target="_blank">Ver PDF</a> · <a href="' + urlDescarga(r.pdfId) + '" target="_blank" download="' + esc(d.id) + '.pdf">' + ICON.descargar + ' Descargar</a>' + (r.enviado ? '<br><span class="gris">Ya enviado: ' + esc(r.enviado).replace(/\n/g, ' / ') + '</span>' : '') + '</p>' +
         '<label>Enviar por</label>' + opciones('spCanal', ['WHATSAPP', 'CORREO'], r.canal, false, { WHATSAPP: 'WhatsApp', CORREO: 'Correo' }) +
         '<label id="spEt">' + (r.canal === 'CORREO' ? 'Correo del cliente' : 'WhatsApp del cliente') + '</label><input id="spDest" value="' + esc(r.destino) + '">' +
-        '<label>Mensaje</label><textarea id="spMsg" rows="5"></textarea>' +
+        '<label>Mensaje</label><textarea id="spMsg" rows="8"></textarea>' +
         '<div class="acciones der" id="spAcc"></div><p class="gris" id="spAyuda"></p>';
       activarOpciones(m);
       // Por WhatsApp va el link del PDF dentro del mensaje; por correo va adjunto.
