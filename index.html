@@ -514,7 +514,7 @@
   function urlMaps(dir, ciudad) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(dir + ', ' + (ciudad || 'Medellín') + ', Colombia'); }
   function hoyISO(dias) { var d = new Date(Date.now() + (dias || 0) * 864e5 - 5 * 3600e3); return d.toISOString().slice(0, 10); }
   var NOMBRES_ESTADO = { PROGRAMADA: 'Programada', EN_CURSO: 'En curso', EN_PAUSA: 'En pausa', CERRADA_TECNICO: 'Cerrada técnico', REVISADA: 'Revisada', LIQUIDADA: 'Liquidada', POR_FACTURAR: 'Por facturar', COMPLETADA: 'Completada', ANULADA: 'Anulada' };
-  var NOMBRES_TIPO = { MANTENIMIENTO: 'Mantenimiento', REPARACION: 'Reparación', INSTALACION: 'Instalación', VISITA_TECNICA: 'Visita técnica' };
+  var NOMBRES_TIPO = { MANTENIMIENTO: 'Mantenimiento', REPARACION: 'Reparación', INSTALACION: 'Instalación', VISITA_TECNICA: 'Visita técnica', SUMINISTRO: 'Suministro' };
   var NOMBRES_PAGO = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', PENDIENTE: 'Pendiente por cobrar', FACTURA: 'Factura electrónica' };
   var NOMBRES_ROL = { ADMIN: 'Administrador', AUXILIAR: 'Auxiliar administrativa', LIQUIDACION: 'Liquidación', COBRO: 'Cobro y facturación', TECNICO: 'Técnico' };
   function chipEstado(e) { return '<span class="estado ' + esc(e) + '">' + esc(NOMBRES_ESTADO[e] || e) + '</span>'; }
@@ -3085,8 +3085,8 @@
   }
 
   // ---------- Resumen financiero ----------
-  // Paleta categórica validada (orden fijo): azul, naranja, aguamarina, amarillo. El color sigue a la serie, no a su posición.
-  var COLOR_SERIE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
+  // Paleta categórica validada (orden fijo): azul, naranja, aguamarina, amarillo, magenta. El color sigue a la serie, no a su posición.
+  var COLOR_SERIE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
   var MESES_N = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   function nombreMes(k, largo) {
     var p = String(k).split('-'), n = MESES_N[Number(p[1]) - 1] || k;
@@ -3261,7 +3261,7 @@
         { nombre: 'Liquidado', color: COLOR_SERIE[0], valores: M.map(function (x) { return x.liquidado; }) },
         { nombre: 'Cobrado o facturado', color: COLOR_SERIE[1], valores: M.map(cobrado) }] }, comun));
       graficaColumnas($('gSer'), Object.assign({ titulo: 'Servicios realizados por mes', apilado: true, formato: 'n', series: r.tipos.map(function (t, k) {
-        return { nombre: NOMBRES_TIPO[t] || t, color: COLOR_SERIE[k % 4], valores: M.map(function (x) { return x.porTipo[t] || 0; }) }; }) }, comun));
+        return { nombre: NOMBRES_TIPO[t] || t, color: COLOR_SERIE[k % COLOR_SERIE.length], valores: M.map(function (x) { return x.porTipo[t] || 0; }) }; }) }, comun));
       tablaSiigo($('fnTabla'), {
         filas: M.slice().reverse().map(function (x) { var c = Object.assign({}, x); c.nombre = nombreMes(x.mes, true); c.cobrado = cobrado(x); return c; }),
         buscar: false, porPagina: 25, descargar: 'resumen_financiero',
