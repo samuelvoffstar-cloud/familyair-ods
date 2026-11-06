@@ -1616,9 +1616,9 @@
     var fila = function (t, v, cl) { return '<div' + (cl ? ' class="' + cl + '"' : '') + '><span>' + t + '</span><span>' + v + '</span></div>'; };
     var conCosto = function (c) { return c === 'MATERIAL' || c === 'SUMINISTRO'; };
     return '<div class="tabla-scroll"><table><thead><tr><th>Código</th><th>Descripción</th><th class="ocultar-movil">Categoría</th><th class="der">Cant.</th><th class="der">Valor cobrado</th><th class="der ocultar-movil">Costo unit.</th><th class="der">Subtotal</th></tr></thead><tbody>' +
-      d.items.map(function (i) { return '<tr><td>' + esc(i.cod) + '</td><td>' + esc(i.desc) + '</td><td class="ocultar-movil">' + esc(i.cat) + (i.cat === 'TRANSPORTE' ? ' <span class="gris">(no se cobra)</span>' : '') + '</td><td class="der">' + esc(i.cant) + '</td><td class="der">' + pesos(i.valor) + '</td><td class="der ocultar-movil">' + (conCosto(i.cat) ? pesos(i.costo != null ? i.costo : i.valor) : '') + '</td><td class="der">' + pesos(i.subtotal) + '</td></tr>'; }).join('') +
+      d.items.map(function (i) { return '<tr><td>' + esc(i.cod) + '</td><td>' + esc(i.desc) + '</td><td class="ocultar-movil">' + esc(i.cat) + (i.cat === 'TRANSPORTE' ? ' <span class="gris">(va en el servicio)</span>' : '') + '</td><td class="der">' + esc(i.cant) + '</td><td class="der">' + pesos(i.valor) + '</td><td class="der ocultar-movil">' + (conCosto(i.cat) ? pesos(i.costo != null ? i.costo : i.valor) : '') + '</td><td class="der">' + pesos(i.subtotal) + '</td></tr>'; }).join('') +
       '</tbody></table></div><div style="padding:14px 20px"><div class="totales">' +
-      fila('Mano de obra', pesos(d.manoObra)) + fila('Materiales (costo)', pesos(d.materiales)) + fila('Suministros (costo)', pesos(d.suministros || 0)) + fila('Transporte (no se cobra)', pesos(d.transporte)) +
+      fila('Mano de obra', pesos(d.manoObra)) + fila('Materiales (costo)', pesos(d.materiales)) + fila('Suministros (costo)', pesos(d.suministros || 0)) + fila('Transporte', pesos(d.transporte)) +
       (d.descuento ? fila('Descuento' + (d.descuentoTipo === 'PCT' ? ' (' + esc(d.descuentoValor) + ' %)' : ''), '-' + pesos(d.descuento)) : '') +
       fila('Total a pagar', pesos(d.total), 't') + '</div></div>';
   }
@@ -1760,7 +1760,7 @@
           return '<tr data-n="' + n + '"><td><input data-c="cod" list="dlSiigo" placeholder="Código Siigo" value="' + esc(i.cod) + '"' + (malo ? ' class="sin-siigo" title="' + (i.cod ? 'Este código no existe en Siigo' : 'Falta el código del producto en Siigo') + '"' : '') + '></td><td><input data-c="desc" value="' + esc(i.desc) + '"' + (falta(i) ? ' class="falta" title="Falta la descripción"' : '') + '></td>' +
             '<td><select data-c="cat">' + AD.cat.categorias.map(function (c) { return '<option' + (c === i.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></td>' +
             '<td><input data-c="cant" type="number" min="0" step="1" value="' + esc(i.cant) + '"></td><td><input data-c="valor" type="number" min="0" step="1000" value="' + esc(i.valor) + '"></td>' +
-            '<td>' + (conCosto(i.cat) ? '<input data-c="costo" type="number" min="0" step="1000" placeholder="= cobrado" value="' + esc(i.costo) + '">' : '<span class="gris">' + (i.cat === 'TRANSPORTE' ? 'no se cobra' : '—') + '</span>') + '</td>' +
+            '<td>' + (conCosto(i.cat) ? '<input data-c="costo" type="number" min="0" step="1000" placeholder="= cobrado" value="' + esc(i.costo) + '">' : '<span class="gris">' + (i.cat === 'TRANSPORTE' ? 'va en el servicio' : '—') + '</span>') + '</td>' +
             '<td class="der">' + pesos((Number(i.cant) || 0) * (Number(i.valor) || 0)) + '</td><td><button class="x" data-quitar title="Quitar">×</button></td></tr>';
         }).join('') + '</tbody></table></div>' +
         '<div class="acciones" style="padding:0 4px"><select id="itTarifa" style="max-width:420px"><option value="">+ Agregar de la lista de tarifas…</option>' +
@@ -1795,14 +1795,15 @@
       cont.querySelector('#itLibre').onclick = function () { lista.push({ cod: '', desc: '', cat: 'SERVICIO', cant: 1, valor: 0, costo: '' }); pintar(); };
       totales();
     }
-    // Mismas cuentas que calcularItems_ del servidor: el cliente paga servicios + materiales + suministros (valor cobrado)
+    // Mismas cuentas que calcularItems_ del servidor: el cliente paga servicios + materiales + suministros + transporte (valor cobrado)
     // menos el descuento; mano de obra = total − costo de materiales − costo de suministros − transporte.
     function resumen() {
       var r = { cobrado: 0, MATERIAL: 0, SUMINISTRO: 0, TRANSPORTE: 0 };
       lista.forEach(function (i) {
         if (!String(i.desc || i.cod || '').trim()) return;
         var cant = Number(i.cant) || 0, sub = Math.round(cant * (Number(i.valor) || 0));
-        if (i.cat === 'TRANSPORTE') r.TRANSPORTE += sub; else r.cobrado += sub;
+        r.cobrado += sub;
+        if (i.cat === 'TRANSPORTE') r.TRANSPORTE += sub;
         if (conCosto(i.cat)) r[i.cat] += Math.round(cant * (String(i.costo).trim() === '' ? Number(i.valor) || 0 : Number(i.costo) || 0));
       });
       r.descuento = getDescuento ? getDescuento(r.cobrado) : 0;
@@ -1812,7 +1813,7 @@
     }
     function totales() {
       var r = resumen(), fila = function (t, v, cl) { return '<div' + (cl ? ' class="' + cl + '"' : '') + '><span>' + t + '</span><span>' + v + '</span></div>'; };
-      cont.querySelector('#itTot').innerHTML = fila('Mano de obra', pesos(r.manoObra)) + fila('Materiales (costo)', pesos(r.MATERIAL)) + fila('Suministros (costo)', pesos(r.SUMINISTRO)) + fila('Transporte (no se cobra)', pesos(r.TRANSPORTE)) +
+      cont.querySelector('#itTot').innerHTML = fila('Mano de obra', pesos(r.manoObra)) + fila('Materiales (costo)', pesos(r.MATERIAL)) + fila('Suministros (costo)', pesos(r.SUMINISTRO)) + fila('Transporte', pesos(r.TRANSPORTE)) +
         (r.descuento ? fila('Subtotal cobrado', pesos(r.cobrado)) + fila('Descuento', '-' + pesos(r.descuento)) : '') + fila('Total a pagar', pesos(r.total), 't');
     }
     pintar();
@@ -2568,7 +2569,6 @@
    * relacionadas (la API de Siigo no lo permite) y aquí vincula la factura con su número.
    */
   function modalVincularFactura(d, listo) {
-    var cobrados = (d.items || []).filter(function (i) { return i.cat !== 'TRANSPORTE'; });
     var m = modal('Facturar desde la cotización ' + d.cotizacion,
       '<ol style="margin-top:0;padding-left:20px;line-height:1.6">' +
       '<li>En Siigo abra la cotización <b>' + esc(d.cotizacion) + '</b> y dé <b>Facturar</b>.</li>' +
@@ -2577,7 +2577,7 @@
       '<li>Escriba aquí el número de la factura y dé <b>Vincular</b>.</li></ol>' +
       '<label>Número de la factura de Siigo</label><input id="vfNum" placeholder="Ej: FV-2-35" autocomplete="off">' +
       '<div class="acciones der"><button id="vfOk" class="ok">Vincular</button></div><p id="vfMsg"></p>' +
-      '<details open class="comparar"><summary><b>Cotización y diferencias con lo liquidado</b></summary>' + comparativo(d, cobrados) + '</details>', 820);
+      '<details open class="comparar"><summary><b>Cotización y diferencias con lo liquidado</b></summary>' + comparativo(d, d.items || []) + '</details>', 820);
     var enviar = function (confirmado) {
       var bt = $('vfOk'), num = $('vfNum').value.trim();
       if (!num) { $('vfMsg').innerHTML = '<span class="error">Escriba el número de la factura.</span>'; $('vfNum').focus(); return; }
