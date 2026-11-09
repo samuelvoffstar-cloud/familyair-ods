@@ -2263,11 +2263,11 @@
       '<label class="chk"><input type="checkbox" id="ecPerm"' + (c.requierePermisos === 'SI' ? ' checked' : '') + '> Requiere enviar permisos (por defecto en sus órdenes)</label>' +
       '<label class="chk"><input type="checkbox" id="ecOc"' + (String(c.facturaConOc || '').toUpperCase() === 'SI' ? ' checked' : '') + '> Factura con orden de compra (primero cotización; sin OC no se factura)</label>' +
       '<label>Observaciones internas (no salen en el soporte)</label><textarea id="ecObsInt">' + esc(c.obsInternas || '') + '</textarea>' +
-      '<p class="gris">Queda guardado en la base y se corrige en las órdenes abiertas del cliente. Las completadas conservan lo que se le entregó.</p><div class="acciones der"><button id="ecOk">Guardar</button></div><p id="ecMsg"></p>', 760);
+      '<p class="gris">Queda guardado en la base y se corrige en las órdenes abiertas del cliente. Las completadas conservan lo que se le entregó. Razón social, teléfono, correo, dirección y ciudad también se actualizan en Siigo.</p><div class="acciones der"><button id="ecOk">Guardar</button></div><p id="ecMsg"></p>', 760);
     m.querySelector('#ecOk').onclick = function () {
       var bt = this; bt.disabled = true;
       api('adminEditarMaestra', 'CLIENTES', c.id, { nombre: $('ecNombre').value, nit: $('ecNit').value, dv: $('ecDv').value, telefono: $('ecTel').value, email: $('ecEmail').value, estado: $('ecEstado').value, direccion: $('ecDir').value, ciudad: $('ecCiudad').value, requierePermisos: $('ecPerm').checked ? 'SI' : 'NO', facturaConOc: $('ecOc').checked ? 'SI' : 'NO', obsInternas: $('ecObsInt').value })
-        .then(function () { m.remove(); aviso('Cliente actualizado.', 0, 'exito'); api('adminClientes').then(function (l) { AD.clientes = l; }); listo(); })
+        .then(function (r) { m.remove(); if (r && r.siigo) aviso('Cliente actualizado en la app. ' + r.siigo, 12000, 'error'); else aviso('Cliente actualizado.', 0, 'exito'); api('adminClientes').then(function (l) { AD.clientes = l; }); listo(); })
         .catch(function (e) { $('ecMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
     };
   }
