@@ -1262,6 +1262,9 @@
       }).join('') + '<div class="kpi" data-ir="cobro"><b style="font-size:20px">' + pesos(r.pendientesCobro.valor) + '</b><span>' + r.pendientesCobro.cantidad + ' pendiente(s) por cobrar</span></div></div>' +
         '<div class="rejilla"><div id="tHoy"></div><div id="tManana"></div></div>' +
         (r.enPausa.length ? '<div id="tPausa"></div>' : '') +
+        ((r.catalogoFuera || []).length ? '<div class="tarjeta" id="iCatalogo"><h2>Productos de Siigo por corregir (' + r.catalogoFuera.length + ')</h2>' +
+          '<p class="gris" style="margin-top:0">Se crearon o editaron en Siigo sin el patrón. Corríjalos en Siigo: código FAMILIA-DETALLE (MANT, INST, DESI, COMP, FUGA, VISITA, REF, REPA, MO, MAT, SUM, VIAT, REC, TRAN, ADM) y nombre en tipo oración, sin repetir otro producto.</p>' +
+          '<ul style="margin:0;padding-left:18px">' + r.catalogoFuera.map(function (x) { return '<li><b>' + esc(x.codigo) + '</b> · ' + esc(x.nombre) + ' <span class="gris">(' + esc(x.motivo) + ')</span></li>'; }).join('') + '</ul></div>' : '') +
         (alertas ? '<h2 style="margin-top:8px">Pendientes</h2><div class="rejilla">' +
           (r.porConfirmar.length ? '<div id="aConf"></div>' : '') + (r.permisos.length ? '<div id="aPerm"></div>' : '') + (r.sinTecnico.length ? '<div id="aSinTec"></div>' : '') + '</div>' : '');
       if ($('iBorrador')) $('iBorrador').onclick = function () { formOrden(null, {}); };
