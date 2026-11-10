@@ -121,6 +121,7 @@
   .barra .icono { background: none; border: none; color: var(--primario); padding: 6px; position: relative; }
   .barra .icono:hover { background: var(--primario-claro); }
   .barra .icono svg { width: 24px; height: 24px; }
+  .barra .icono.girando svg { animation: girar .8s linear infinite; }
   .barra .icono .punto { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rojo); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primario); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .btn-menu { display: none; }
@@ -754,7 +755,7 @@
   }
 
   // ---------- Carga rápida: lo último que se vio aparece al instante y se actualiza detrás ----------
-  var VISTAS = {}, TURNO = 0, MAX_VISTAS = 40, INIT_RECIEN = 0, PRE_TEC = null;
+  var VISTAS = {}, TURNO = 0, MAX_VISTAS = 40, INIT_RECIEN = 0, PRE_TEC = null, ULTIMA_LECTURA = null;
   function claveVista(fn, args) { return fn + JSON.stringify(args || []); }
   function guardarVista(fn, args, r) {
     var k = claveVista(fn, args);
@@ -787,7 +788,7 @@
     // Si ya se estaba trayendo (precarga al pasar el mouse), se espera esa misma respuesta en vez de pedirla otra vez.
     var k = claveVista(fn, args), desde = Date.now(), enCurso = PRECARGAS[k];
     var pedido = enCurso ? enCurso.then(function () { var x = VISTAS[k]; return x && x.t >= desde - 30000 && x.t > 0 ? x.r : llamar(fn, args, false); }) : llamar(fn, args, false);
-    return pedido.then(function (r) {
+    return ULTIMA_LECTURA = pedido.then(function (r) {
       guardarVista(fn, args, r);
       if (turno === TURNO && JSON.stringify(r) !== antes) pintar(r, false);
       return r;
@@ -891,6 +892,7 @@
     finanzas: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 20h16v2H4zM5 11h3v7H5zm5.5-5h3v12h-3zM16 14h3v4h-3z"/></svg>',
     buscar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
     mas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>',
+    actualizar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
     campana: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5.5-6.8V3a1.5 1.5 0 0 0-3 0v1.2A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>',
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
     filtros: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
@@ -1030,6 +1032,7 @@
       '<div class="empresa">FAMILY AIR</div>' +
       '<div class="buscar">' + ICON.buscar + '<input id="busGlobal" placeholder="Buscar orden, cliente o NIT"></div>' +
       (puede('crear') ? '<button id="btnCrear">' + ICON.mas + ' Crear</button>' : '') +
+      '<button class="icono" id="btnActualizar" title="Actualizar" aria-label="Actualizar">' + ICON.actualizar + '</button>' +
       '<button class="icono" id="btnAlertas" title="Pendientes">' + ICON.campana + '<span class="punto" id="nAlertas" style="display:none"></span></button>' +
       '<div class="avatar" id="btnAvatar" title="' + esc(SES.nombre) + '">' + esc(ini) + '</div>' +
       '</header><div id="vista"></div></div></div><div class="velo" id="velo"></div>';
@@ -1047,6 +1050,7 @@
     // Carga rápida: arranca con la copia guardada de clientes, técnicos y catálogos, y la actualiza en segundo plano.
     var claveInit = 'fa_init_' + SES.usuario, copia = leerLocal(claveInit), arrancado = false;
     var aplicar = function (r) { AD.tecnicos = r.tecnicos; AD.tarifas = r.tarifas; AD.cat = r.catalogos; AD.clientes = r.clientes; SES.permisos = r.sesion.permisos; };
+    $('btnActualizar').onclick = function () { actualizarApp(this, function (r) { guardarLocal(claveInit, r); aplicar(r); if (arrancado) pintarMenu(); }); };
     var empezar = function () {
       arrancado = true;
       pintarMenu();
@@ -1189,6 +1193,46 @@
     var a = document.activeElement;
     if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return false;
     return !$$('#vista input').some(function (i) { return i.value && !/checkbox|radio|hidden|date|time/.test(i.type); });
+  }
+  /**
+   * Botón Actualizar (pedido de Samuel, 10/11/2026): trae del servidor la sección abierta (sin la copia guardada), clientes y
+   * técnicos, y revisa si hay versión nueva de la app en GitHub; si la hay, recarga la página con ella. Con un formulario o una
+   * ventana abierta pregunta antes, porque lo que no se ha guardado se pierde.
+   */
+  function actualizarApp(bt, aplicarInit) {
+    if (bt.disabled) return;
+    (puedeRefrescar() ? Promise.resolve(true) : confirmar('¿Actualizar? Lo que no ha guardado se pierde.', 'Actualizar', true)).then(function (si) {
+      if (!si) return;
+      $$('.modal').forEach(function (m) { m.parentNode.removeChild(m); });
+      bt.disabled = true; bt.classList.add('girando');
+      var fin = function (msg, tipo) { bt.disabled = false; bt.classList.remove('girando'); aviso(msg, 0, tipo); };
+      versionNuevaApp().then(function (nueva) {
+        if (nueva) { aviso('Hay una versión nueva de la app. Cargándola…'); setTimeout(function () { location.reload(); }, 400); return; }
+        Object.keys(VISTAS).forEach(function (k) { VISTAS[k].t = 0; });
+        return api('adminInit', '').then(function (r) {
+          aplicarInit(r);
+          ULTIMA_LECTURA = null;
+          ir(AD.ruta || 'inicio', true);
+          return Promise.resolve(ULTIMA_LECTURA).then(function () { fin('Actualizado.', 'exito'); });
+        });
+      }).catch(function (e) { fin('No se pudo actualizar: ' + e.message, 'error'); });
+    });
+  }
+  /** GitHub Pages: pide al service worker la versión publicada. true si llegó una nueva (ya instalada y lista). */
+  function versionNuevaApp() {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistration) return Promise.resolve(false);
+    return navigator.serviceWorker.getRegistration().then(function (reg) {
+      if (!reg || !reg.update) return false;
+      return reg.update().then(function () {
+        var w = reg.installing || reg.waiting;
+        if (!w) return false;
+        return new Promise(function (ok) {
+          var listo = function () { if (w.state === 'activated' || w.state === 'installed' || w.state === 'redundant') ok(w.state !== 'redundant'); };
+          w.addEventListener('statechange', listo); listo();
+          setTimeout(function () { ok(true); }, 8000);
+        });
+      });
+    }).catch(function () { return false; });
   }
   function refrescarVista() {
     var y = window.scrollY;
