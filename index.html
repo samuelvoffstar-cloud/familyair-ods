@@ -1488,7 +1488,7 @@
         dato('Factura Siigo', d.factura && !/^ENVIANDO/.test(d.factura) ? '<b>' + esc(d.factura) + '</b>' : '') +
         dato(/anulada|eliminada/.test(d.siigoError || '') ? 'Aviso de Siigo' : 'Error de Siigo', d.siigoError ? '<span class="error">' + esc(d.siigoError) + '</span>' : '') +
         dato('Completada', esc(d.completada)) + '</dl></div>' : '') +
-      ((d.seguimientoCobro || []).length || (puede('cobrar') && ['LIQUIDADA', 'POR_FACTURAR'].indexOf(d.estado) >= 0) ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">Seguimiento del cobro' +
+      ((d.seguimientoCobro || []).length || (puede('cobrar') && ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0) ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">Seguimiento del cobro' +
         (puede('cobrar') && ['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 ? '<button class="sec" id="aSeguimiento" style="padding:6px 12px">Anotar seguimiento</button>' : '') + '</h2>' +
         htmlSeguimiento(d.seguimientoCobro) + '</div>' : '') +
       (d.motivoRetorno || d.motivoAnulacion ? '<div class="tarjeta"><dl class="datos">' + dato('Retornos', d.retornos ? String(d.retornos) : '') + dato('Motivo del último retorno', esc(d.motivoRetorno)) + dato('Motivo de anulación', esc(d.motivoAnulacion)) + '</dl></div>' : '') +
@@ -2784,8 +2784,8 @@
           return o.cotizacion ? esc(o.cotizacion) + ' <button class="ok" data-oc="' + esc(o.id) + '" style="margin-left:8px;padding:6px 12px">Registrar OC</button>'
             : '<button class="sec" data-cot="' + esc(o.id) + '" style="padding:6px 12px">Crear cotización en Siigo</button>';
         } });
-        // Pendientes por cobrar: la última nota de seguimiento (cuándo se le escribió y qué dijo) y el botón para anotar.
-        if (tab === 'PENDIENTE') cols.push({ t: 'Seguimiento', k: 'seguimiento', csv: function (o) { return o.seguimiento ? o.seguimiento.fecha + ' · ' + o.seguimiento.texto : ''; }, fmt: function (o) {
+        // Todas las pestañas: la última nota de seguimiento (cuándo se le escribió y qué dijo) y el botón para anotar.
+        cols.push({ t: 'Seguimiento', k: 'seguimiento', csv: function (o) { return o.seguimiento ? o.seguimiento.fecha + ' · ' + o.seguimiento.texto : ''; }, fmt: function (o) {
           return (o.seguimiento ? '<div style="max-width:340px;white-space:normal"><span class="gris">' + esc(String(o.seguimiento.fecha).slice(0, 16)) + ' · ' + esc(o.seguimiento.nombre) + '</span><br>' + esc(o.seguimiento.texto) + '</div>' : '<span class="gris">Sin seguimiento</span>') +
             ' <button class="sec" data-seg="' + esc(o.id) + '" style="padding:6px 12px;margin-top:4px">Anotar</button>';
         } });
