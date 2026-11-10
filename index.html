@@ -122,6 +122,23 @@
   .barra .icono:hover { background: var(--primario-claro); }
   .barra .icono svg { width: 24px; height: 24px; }
   .barra .icono.girando svg { animation: girar .8s linear infinite; }
+  /* Campana: panel de pendientes que baja desde la barra; en celular, hoja desde abajo */
+  .panel-notif { position: fixed; top: 60px; right: 16px; width: 420px; max-height: 72vh; background: #fff; border: 1px solid var(--borde); border-radius: 12px; box-shadow: 0 12px 32px rgba(20,40,61,.18); z-index: 80; display: flex; flex-direction: column; animation: entrar 160ms ease; }
+  .panel-notif .ncab-panel { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
+  .panel-notif .ncab-panel button { padding: 6px 12px; }
+  .panel-notif .ncuerpo { overflow-y: auto; padding: 6px 8px 10px; }
+  .panel-notif .ngrupo { padding: 6px 0; border-bottom: 1px solid var(--borde); }
+  .panel-notif .ngrupo:last-child { border-bottom: none; }
+  .panel-notif .ncab { display: flex; align-items: center; gap: 8px; padding: 4px 6px; }
+  .panel-notif .ncab .cuenta { background: var(--primario-claro); color: var(--primario); border-radius: 10px; padding: 0 8px; font-size: 12px; font-weight: 700; }
+  .panel-notif .enlace-btn { margin-left: auto; background: none; border: none; color: var(--primario); padding: 2px 4px; font-weight: 600; cursor: pointer; }
+  .panel-notif .nitem { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 7px 8px; color: inherit; font-weight: 400; cursor: pointer; }
+  .panel-notif .nitem:hover { background: var(--primario-claro); }
+  .panel-notif .nitem small { display: block; color: var(--gris); margin-top: 2px; }
+  .panel-notif .nueva { background: var(--verde); color: #fff; border-radius: 8px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+  @media (max-width: 640px) {
+    .panel-notif { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 80vh; border-radius: 16px 16px 0 0; }
+  }
   .barra .icono .punto { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--rojo); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primario); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; cursor: pointer; flex-shrink: 0; }
   .btn-menu { display: none; }
@@ -1045,7 +1062,7 @@
       m.querySelector('#mSalir').onclick = function () { cerrarSesion(false); };
       if (dosPaneles()) m.querySelector('#mTecnico').onclick = function () { cambiarPanel('tecnico'); };
     };
-    $('btnAlertas').onclick = function () { ir('inicio'); };
+    $('btnAlertas').onclick = function (ev) { ev.stopPropagation(); abrirNotificaciones(); };
     $('vista').innerHTML = cargando('Cargando…');
     // Carga rápida: arranca con la copia guardada de clientes, técnicos y catálogos, y la actualiza en segundo plano.
     var claveInit = 'fa_init_' + SES.usuario, copia = leerLocal(claveInit), arrancado = false;
@@ -1056,6 +1073,7 @@
       pintarMenu();
       if (puede('revisar')) vigilarRevision();
       vigilarCambios();
+      cargarNotificaciones();
       ir(location.hash ? location.hash.slice(1) : 'inicio');
       // Mientras se mira la primera pantalla, se traen las secciones que esa persona usa: al abrirlas ya están.
       // Todas las secciones de su menú (en cola, 3 a la vez) y el detalle de las primeras órdenes de su bandeja de trabajo.
@@ -1182,11 +1200,80 @@
       if (document.hidden || !navigator.onLine) return;
       api('adminVersion').then(function (v) {
         if (AD.version === undefined) { AD.version = v; return; }
-        if (v === AD.version || !puedeRefrescar()) return;
+        if (v === AD.version) return;
+        if (v !== AD.versionNotif) { AD.versionNotif = v; cargarNotificaciones(); }
+        if (!puedeRefrescar()) return;
         AD.version = v; refrescarVista();
       }).catch(function () {});
     }, 30000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden && AD.version !== undefined) api('adminVersion').then(function (v) { if (v !== AD.version && puedeRefrescar()) { AD.version = v; refrescarVista(); } }).catch(function () {}); });
+  }
+  /* ---------- Campana de pendientes (pedido de Samuel, 10/11/2026) ---------- */
+  /** Las órdenes nuevas cuentan en la campana hasta que se abre el panel; los demás grupos, hasta que se resuelven. */
+  function claveNotifVistas() { return 'fa_notif_vistas_' + SES.usuario; }
+  function cuentaNotificaciones(n) {
+    var vistas = leerLocal(claveNotifVistas()) || [];
+    return (n.grupos || []).reduce(function (a, g) {
+      return a + (g.clave === 'nuevas' ? g.items.filter(function (x) { return vistas.indexOf(x.id) < 0; }).length : g.total);
+    }, 0);
+  }
+  function pintarCampana() {
+    var el = $('nAlertas'); if (!el || !AD.notif) return;
+    var c = cuentaNotificaciones(AD.notif);
+    el.style.display = c ? 'flex' : 'none'; el.textContent = c > 99 ? '99+' : c;
+  }
+  function cargarNotificaciones() {
+    return api('adminNotificaciones').then(function (n) {
+      AD.notif = n; pintarCampana();
+      if ($('panelNotif')) pintarPanelNotif();
+      return n;
+    }).catch(function () { return AD.notif; });
+  }
+  function cerrarNotificaciones() {
+    var p = $('panelNotif'); if (p) p.parentNode.removeChild(p);
+    document.removeEventListener('click', clicFueraNotif, true);
+    document.removeEventListener('keydown', escNotif);
+  }
+  function clicFueraNotif(ev) { var p = $('panelNotif'); if (p && !p.contains(ev.target) && !$('btnAlertas').contains(ev.target)) cerrarNotificaciones(); }
+  function escNotif(ev) { if (ev.key === 'Escape') cerrarNotificaciones(); }
+  function abrirNotificaciones() {
+    if ($('panelNotif')) { cerrarNotificaciones(); return; }
+    var p = document.createElement('div');
+    p.id = 'panelNotif'; p.className = 'panel-notif'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'Pendientes');
+    document.body.appendChild(p);
+    pintarPanelNotif(!AD.notif);
+    document.addEventListener('click', clicFueraNotif, true);
+    document.addEventListener('keydown', escNotif);
+    cargarNotificaciones().then(function (n) {
+      // Al abrir el panel, las órdenes nuevas que se ven quedan marcadas como vistas.
+      var g = ((n || {}).grupos || []).filter(function (x) { return x.clave === 'nuevas'; })[0];
+      if (g) { guardarLocal(claveNotifVistas(), g.items.map(function (x) { return x.id; })); pintarCampana(); }
+    });
+  }
+  function pintarPanelNotif(cargandoPanel) {
+    var p = $('panelNotif'); if (!p) return;
+    var n = AD.notif || { grupos: [] }, vistas = leerLocal(claveNotifVistas()) || [];
+    var cuerpo = cargandoPanel ? cargando('Cargando…') : !n.grupos.length ? '<p class="gris" style="margin:8px 4px">No hay pendientes.</p>' :
+      n.grupos.map(function (g) {
+        return '<section class="ngrupo"><div class="ncab"><b>' + esc(g.titulo) + '</b><span class="cuenta">' + g.total + '</span>' +
+          (g.ir !== 'inicio' || g.total > 5 ? '<button class="enlace-btn" data-ver="' + esc(g.ir) + '" data-tab="' + esc(g.tab) + '">Ver todas</button>' : '') + '</div>' +
+          g.items.slice(0, 5).map(function (x) {
+            var nueva = g.clave === 'nuevas' && vistas.indexOf(x.id) < 0;
+            return '<button class="nitem" ' + (x.id ? 'data-orden="' + esc(x.id) + '"' : 'data-ver="inicio"') + '>' +
+              (x.id ? '<b>' + esc(x.id) + '</b> · ' : '') + esc(x.cliente) + (nueva ? ' <span class="nueva">Nueva</span>' : '') +
+              (x.sede ? '<span class="gris"> · ' + esc(x.sede) + '</span>' : '') + '<small>' + esc(x.detalle || '') + '</small></button>';
+          }).join('') + '</section>';
+      }).join('');
+    p.innerHTML = '<div class="ncab-panel"><b>Pendientes</b><button class="sec" data-cerrar-notif>Cerrar</button></div><div class="ncuerpo">' + cuerpo + '</div>';
+    p.querySelector('[data-cerrar-notif]').onclick = cerrarNotificaciones;
+    $$('[data-orden]', p).forEach(function (b) { b.onclick = function () { cerrarNotificaciones(); ir('orden/' + b.getAttribute('data-orden')); }; });
+    $$('[data-ver]', p).forEach(function (b) {
+      b.onclick = function () {
+        var tab = b.getAttribute('data-tab');
+        if (tab) AD.tabCobro = tab;
+        cerrarNotificaciones(); ir(b.getAttribute('data-ver'));
+      };
+    });
   }
   function puedeRefrescar() {
     if (AD.enFormulario || document.querySelector('.modal')) return false;
@@ -1211,6 +1298,7 @@
         Object.keys(VISTAS).forEach(function (k) { VISTAS[k].t = 0; });
         return api('adminInit', '').then(function (r) {
           aplicarInit(r);
+          cargarNotificaciones();
           ULTIMA_LECTURA = null;
           ir(AD.ruta || 'inicio', true);
           return Promise.resolve(ULTIMA_LECTURA).then(function () { fin('Actualizado.', 'exito'); });
@@ -1294,7 +1382,6 @@
       var kp = [['PROGRAMADA', 'Programadas', 'ordenes'], ['EN_CURSO', 'En curso', 'ordenes'], ['EN_PAUSA', 'En pausa', 'ordenes'], ['BANDEJA_REVISION', 'Por revisar', 'revision'],
         ['BANDEJA_LIQUIDACION', 'Por liquidar', 'liquidacion'], ['LIQUIDADA', 'Por cobrar', 'cobro'], ['POR_FACTURAR', 'Por facturar', 'cobro'], ['COMPLETADA', 'Completadas', 'ordenes']];
       var alertas = r.porConfirmar.length + r.permisos.length + r.sinTecnico.length;
-      $('nAlertas').style.display = alertas ? 'flex' : 'none'; $('nAlertas').textContent = alertas;
       [['revision', c.BANDEJA_REVISION !== undefined ? c.BANDEJA_REVISION : c.CERRADA_TECNICO], ['liquidacion', c.BANDEJA_LIQUIDACION !== undefined ? c.BANDEJA_LIQUIDACION : c.REVISADA], ['cobro', c.LIQUIDADA + c.POR_FACTURAR]].forEach(function (x) {
         var el = document.querySelector('[data-cuenta="' + x[0] + '"]'); if (el) { el.style.display = x[1] ? '' : 'none'; el.textContent = x[1]; }
       });
