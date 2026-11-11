@@ -1519,7 +1519,7 @@
     // Garantías: las liquida la auxiliar (pedido de Samuel, 29/10/2026), de una vez al revisarlas.
     var garantiaAux = d.tipoOrden === 'GARANTIA' && !d.enRetorno && puede('revisar');
     if (garantiaAux && d.estado === 'CERRADA_TECNICO') b('aRevLiq', 'Revisar y liquidar', 'ok');
-    if (d.estado === 'CERRADA_TECNICO' && puede('revisar')) b('aDevolver', 'Devolver al técnico', 'sec');
+    if ((d.estado === 'CERRADA_TECNICO' || d.estado === 'REVISADA') && puede('revisar')) b('aDevolver', 'Devolver al técnico', 'sec');
     if (garantiaAux && !puede('liquidar') && (d.estado === 'REVISADA' || d.estado === 'LIQUIDADA')) b('aLiqGa', d.estado === 'REVISADA' ? 'Liquidar garantía' : 'Corregir liquidación', d.estado === 'REVISADA' ? 'ok' : 'sec');
     // Cuenta de cobro (opcional) a nombre de Lucas, con el formato de la empresa.
     if (['LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('cobrar') && d.total > 0) b('aCuentaCobro', d.cuentaCobroId ? 'Cuenta de cobro de nuevo' : 'Cuenta de cobro', 'sec');
