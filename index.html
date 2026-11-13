@@ -1583,7 +1583,7 @@
     if (d.recordatorio && puede('recordar')) b('aRecordar', ICON.wa + (d.recordatorio.tipo === 'MANT' ? ' Recordar mantenimiento' : ' Recordar visita') + (d.recordatorio.hecho ? ' de nuevo' : ''), d.recordatorio.hecho ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
     if (puedeCerrarOficina(d)) b('aCerrarOf', 'Cerrar servicio (oficina)', 'sec');
-    if (d.estado === 'EN_CURSO' && puede('editar')) b('aPausar', 'Pausar', 'sec');
+    if ((d.estado === 'EN_CURSO' && puede('editar')) || (d.estado === 'PROGRAMADA' && puedeCerrarOficina(d))) b('aPausar', 'Pausar', 'sec');
     if (d.estado === 'EN_PAUSA' && puede('editar')) b('aReanudar', 'Reanudar', 'ok');
     if (d.estado !== 'ANULADA' && puede('editar')) b('aEditar', 'Editar', 'sec');
     if (['COMPLETADA', 'ANULADA'].indexOf(d.estado) < 0 && puede('anular') && !d.siigoId) b('aAnular', 'Anular', 'peligro');
@@ -1792,10 +1792,12 @@
     });
     accion('aSoporte', function () { modalSoporte(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aPausar', function () {
-      var m = modal('Pausar ' + d.id, '<label>Motivo *</label><input id="paMotivo"><label>¿Cuándo se retoma?</label><input type="date" id="paRetoma" value="' + hoyISO(1) + '"><label>Lo que se hizo en esta jornada</label><textarea id="paTrabajo"></textarea><div class="acciones der"><button id="paOk">Pausar</button></div>', 520);
+      // Programada (el técnico no la inició en el celular): se pide cuándo empezó esa jornada.
+      var prog = d.estado === 'PROGRAMADA', fp = String(d.fechaProgramada || '').replace('T', ' ');
+      var m = modal('Pausar ' + d.id, (prog ? '<p class="gris" style="margin-top:0">El técnico no la inició en el celular: queda iniciada desde la oficina con esta fecha y en pausa.</p><label>Inicio del servicio *</label><div class="fila" style="margin:0"><input type="date" id="paFIni" value="' + esc(fp.slice(0, 10) <= hoyISO(0) ? fp.slice(0, 10) : hoyISO(0)) + '"><input type="time" id="paHIni" value="' + esc((/(\d{2}:\d{2})/.exec(fp) || [])[1] || '08:00') + '"></div>' : '') + '<label>Motivo *</label><input id="paMotivo"><label>¿Cuándo se retoma?</label><input type="date" id="paRetoma" value="' + hoyISO(1) + '"><label>Lo que se hizo en esta jornada</label><textarea id="paTrabajo"></textarea><div class="acciones der"><button id="paOk">Pausar</button></div>', 520);
       m.querySelector('#paOk').onclick = function () {
         if (!$('paMotivo').value.trim()) { marcarError($('paMotivo'), 'Escriba el motivo.'); return; }
-        api('adminPausar', d.id, { motivo: $('paMotivo').value, retoma: $('paRetoma').value, trabajo: $('paTrabajo').value }).then(function (nd) { m.remove(); aviso('Orden en pausa.', 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { aviso(e.message, 0, 'error'); });
+        api('adminPausar', d.id, { motivo: $('paMotivo').value, retoma: $('paRetoma').value, trabajo: $('paTrabajo').value, inicio: prog ? $('paFIni').value + ' ' + $('paHIni').value : '' }).then(function (nd) { m.remove(); aviso('Orden en pausa.', 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { aviso(e.message, 0, 'error'); });
       };
     });
     accion('aReanudar', function () { ejecutar(this, api('adminReanudar', d.id), 'Orden reanudada: nueva jornada.'); });
