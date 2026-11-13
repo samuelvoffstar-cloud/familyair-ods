@@ -1582,6 +1582,7 @@
     // Recordatorio al cliente por WhatsApp (Erika, 12/11/2026): mantenimiento por confirmar o visita de mañana.
     if (d.recordatorio && puede('recordar')) b('aRecordar', ICON.wa + (d.recordatorio.tipo === 'MANT' ? ' Recordar mantenimiento' : ' Recordar visita') + (d.recordatorio.hecho ? ' de nuevo' : ''), d.recordatorio.hecho ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
+    if (puedeCerrarOficina(d)) b('aCerrarOf', 'Cerrar servicio (oficina)', 'sec');
     if (d.estado === 'EN_CURSO' && puede('editar')) b('aPausar', 'Pausar', 'sec');
     if (d.estado === 'EN_PAUSA' && puede('editar')) b('aReanudar', 'Reanudar', 'ok');
     if (d.estado !== 'ANULADA' && puede('editar')) b('aEditar', 'Editar', 'sec');
@@ -1756,6 +1757,7 @@
     });
     accion('aRetorno', function () { modalRetorno(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aEditar', function () { formOrden(d.id, d); });
+    accion('aCerrarOf', function () { modalCerrarOficina(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aAnular', function () { pedirTexto('Anular ' + d.id, 'Motivo de la anulación. El número queda anulado y no se reutiliza.', function (t, m) { return api('adminAnular', d.id, t).then(function (nd) { m.remove(); aviso('Orden anulada.', 0, 'exito'); pintarDetalle(cont, nd); }); }); });
     accion('aReactivar', function () { var bt = this; confirmar('La orden vuelve a Programada.', 'Reactivar').then(function (si) { if (si) ejecutar(bt, api('adminReactivar', d.id), 'Orden reactivada.'); }); });
     if ($('dOcCorreo')) $('dOcCorreo').onclick = function (ev) {
@@ -1920,7 +1922,67 @@
    * orden ya cerrada por el técnico, sin devolvérsela. Las fotos se reducen como en el celular; el video va por partes.
    */
   var ESTADOS_EVIDENCIA_OFICINA = ['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'];
-  function puedeEvidencia(d) { return puede('editar') && ESTADOS_EVIDENCIA_OFICINA.indexOf(d.estado) >= 0; }
+  var ESTADOS_ABIERTOS_OFICINA = ['PROGRAMADA', 'EN_CURSO', 'EN_PAUSA'];
+  // Antes del cierre solo Erika, Lucas y Samuel (permiso cerrarOficina); después, todos los que editan.
+  function puedeEvidencia(d) {
+    return (puede('editar') && ESTADOS_EVIDENCIA_OFICINA.indexOf(d.estado) >= 0) || (puede('cerrarOficina') && ESTADOS_ABIERTOS_OFICINA.indexOf(d.estado) >= 0);
+  }
+  function puedeCerrarOficina(d) { return puede('cerrarOficina') && ESTADOS_ABIERTOS_OFICINA.indexOf(d.estado) >= 0 && !d.pendDisponibilidad; }
+
+  /**
+   * Cerrar el servicio desde la oficina (decisión de Samuel, 13/11/2026): lo mismo que cierra el técnico en el celular.
+   * Las fotos se suben antes con Agregar fotos y la ficha técnica se completa en Editar; la firma es opcional.
+   */
+  function modalCerrarOficina(d, listo) {
+    var sc = d.tipoOrden === 'SIN_COBRO';
+    var ini = String(d.inicioJornada || d.horaInicio || d.fechaProgramada || '').replace('T', ' ');
+    var hoy = hoyISO(0), ahora = new Date(Date.now() - 5 * 3600e3).toISOString().slice(11, 16);
+    var fIni = /^\d{4}-\d{2}-\d{2}/.test(ini) ? ini.slice(0, 10) : hoy, hIni = (/(\d{2}:\d{2})/.exec(ini) || [])[1] || '08:00';
+    // Si la hora programada todavía no llega, se propone hoy, una hora antes de ahora (se puede corregir).
+    if (fIni + ' ' + hIni > hoy + ' ' + ahora) { fIni = hoy; hIni = new Date(Date.now() - 6 * 3600e3).toISOString().slice(11, 16); if (hIni > ahora) hIni = '00:00'; }
+    var nFotos = (d.fotos || []).filter(function (f) { return ['ANTES', 'DESPUES', 'EVIDENCIA'].indexOf(f.tipo) >= 0; }).length;
+    var m = modal('Cerrar ' + d.id + ' desde la oficina',
+      '<p class="gris" style="margin-top:0">Para cuando el técnico no pudo cerrarla en el celular. Queda a nombre de ' + esc(d.tecnicoNombre || d.tecnico || 'el técnico asignado') + ' y registrado que la cerró ' + esc(SES.nombre) + '. Pasa a Revisión.</p>' +
+      (sc ? '' : '<p class="' + (nFotos ? 'gris' : 'error') + '">Fotos de evidencia: ' + nFotos + (nFotos ? '' : ' — suba al menos una con Agregar fotos en el detalle.') + ((d.fichas || []).length ? ' · La ficha técnica debe estar completa (se llena en Editar).' : '') + '</p>') +
+      '<label>' + (sc ? 'Nota de lo que se hizo' : 'Trabajo realizado y observaciones') + ' *</label><textarea id="coTrabajo">' + esc(d.trabajo || '') + '</textarea>' +
+      (sc ? '' : '<label>Estado del artefacto *</label>' + opciones('coArt', AD.cat.estadoArtefacto, d.estadoArtefacto || [], true) +
+        '<div class="fila"><div><label>Recibe *</label><input id="coRecibe" value="' + esc(d.recibeNombre || '') + '"></div><div><label>Documento</label><input id="coDoc" value="' + esc(d.recibeDoc || '') + '"></div></div>') +
+      '<div class="fila"><div><label>Inicio *</label><div class="fila" style="margin:0"><input type="date" id="coFIni" value="' + esc(fIni) + '"><input type="time" id="coHIni" value="' + esc(hIni) + '"></div></div>' +
+      '<div><label>Fin *</label><div class="fila" style="margin:0"><input type="date" id="coFFin" value="' + esc(hoy) + '"><input type="time" id="coHFin" value="' + esc(ahora) + '"></div></div></div>' +
+      (sc ? '' : '<label>Firma de quien recibe (opcional)</label>' +
+        (d.firmaId ? '<p class="gris" style="margin:2px 0">La orden ya tiene firma; se conserva si no sube otra.</p>' : '') +
+        '<div class="acciones" style="margin:4px 0"><button type="button" class="sec" id="coFirmaBt">' + ICON.mas + ' Subir foto de la firma o de la orden firmada</button><input type="file" id="coFirma" accept="image/*" hidden><span id="coFirmaNom" class="gris"></span></div>' +
+        (d.firmaId ? '' : '<div id="coSinFirmaBox"><label>Motivo por el que no hay firma *</label><input id="coSinFirma" placeholder="Ej: el cliente no estaba; recibió portería"></div>') +
+        '<label>Enviar soporte por</label>' + opciones('coCanal', ['WHATSAPP', 'CORREO'], d.envioCanal || 'WHATSAPP', false, { WHATSAPP: 'WhatsApp', CORREO: 'Correo' }) +
+        '<label>WhatsApp o correo del cliente</label><input id="coDest" value="' + esc(d.envioDestino || d.telefono || '') + '">') +
+      '<div class="acciones der"><button id="coOk" class="ok">Cerrar servicio</button></div><p id="coMsg"></p>', 640);
+    activarOpciones(m);
+    var firma = '';
+    if ($('coFirmaBt')) {
+      $('coFirmaBt').onclick = function () { $('coFirma').value = ''; $('coFirma').click(); };
+      $('coFirma').onchange = function () {
+        var f = this.files[0]; if (!f) return;
+        reducirImagen(f, 1200, 0.85).then(function (u) {
+          firma = u; $('coFirmaNom').textContent = f.name + ' ✓';
+          if ($('coSinFirmaBox')) $('coSinFirmaBox').style.display = 'none';
+        }).catch(function () { aviso('No se pudo leer la imagen.', 0, 'error'); });
+      };
+    }
+    m.querySelector('#coOk').onclick = function () {
+      var bt = this;
+      var datos = {
+        trabajo: $('coTrabajo').value, inicio: $('coFIni').value + ' ' + $('coHIni').value, fin: $('coFFin').value + ' ' + $('coHFin').value
+      };
+      if (!sc) {
+        datos.estadoArtefacto = valoresOpcion('coArt', m); datos.recibeNombre = $('coRecibe').value; datos.recibeDoc = $('coDoc').value;
+        datos.envioCanal = valorOpcion('coCanal', m); datos.envioDestino = $('coDest').value;
+        if (firma) datos.firma = firma; else if ($('coSinFirma')) datos.sinFirma = $('coSinFirma').value;
+      }
+      bt.disabled = true; $('coMsg').textContent = 'Cerrando…';
+      api('adminCerrarOficina', d.id, datos).then(function (nd) { m.remove(); aviso('Servicio cerrado: pasa a Revisión.', 0, 'exito'); listo(nd); })
+        .catch(function (e) { $('coMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; });
+    };
+  }
   function botonesEvidencia(p) {
     return '<div class="acciones" style="margin:4px 0 10px">' +
       '<button type="button" class="sec" id="' + p + 'Fotos">' + ICON.mas + ' Agregar fotos</button>' +
