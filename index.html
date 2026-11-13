@@ -135,6 +135,14 @@
   .panel-notif .nitem { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 8px; padding: 7px 8px; color: inherit; font-weight: 400; cursor: pointer; }
   .panel-notif .nitem:hover { background: var(--primario-claro); }
   .panel-notif .nitem small { display: block; color: var(--gris); margin-top: 2px; }
+  .panel-notif .nfila { display: flex; align-items: center; gap: 6px; }
+  .panel-notif .nfila .nitem { flex: 1; min-width: 0; }
+  .panel-notif .nwa { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px; background: #25d366; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .panel-notif .nwa.hecho { opacity: .5; pointer-events: none; }
+  .panel-notif .nwa svg, a.btn-wa svg { width: 15px; height: 15px; }
+  .panel-notif .nwa-sin { flex: none; font-size: 12px; padding: 0 6px; }
+  a.btn-wa { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 8px; background: #1e8e4f; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  a.btn-wa.sec { background: none; color: #1e8e4f; border: 1px solid #1e8e4f; }
   .panel-notif .nueva { background: var(--verde); color: #fff; border-radius: 8px; padding: 0 6px; font-size: 11px; font-weight: 700; }
   @media (max-width: 640px) {
     .panel-notif { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 80vh; border-radius: 16px 16px 0 0; }
@@ -528,7 +536,32 @@
   function urlCarpeta(id) { return 'https://drive.google.com/drive/folders/' + encodeURIComponent(id); }
   function urlDoc(id) { return window.__demoUrl ? window.__demoUrl(id) : 'https://docs.google.com/document/d/' + encodeURIComponent(id) + '/edit'; }
   function telLimpio(t) { return String(t || '').replace(/[^\d+]/g, ''); }
-  function urlWhatsapp(t) { var n = telLimpio(t).replace(/^\+/, ''); if (n.length === 10) n = '57' + n; return 'https://wa.me/' + n; }
+  function numeroWhatsapp(t) { var n = telLimpio(t).replace(/^\+/, ''); if (n.length === 10) n = '57' + n; return n; }
+  function urlWhatsapp(t, texto) { return 'https://wa.me/' + numeroWhatsapp(t) + (texto ? '?text=' + encodeURIComponent(texto) : ''); }
+  /**
+   * WhatsApp sin pestañas nuevas (pedido de Samuel, 12/11/2026): en un computador con Windows se abre la aplicación de
+   * escritorio de WhatsApp (whatsapp://send) en el chat del cliente con el mensaje escrito; la primera vez el navegador
+   * pregunta "¿Abrir WhatsApp?" y se marca Permitir siempre. En el celular se abre la app; en otros computadores,
+   * WhatsApp Web siempre en la misma pestaña.
+   */
+  function abrirWhatsapp(t, texto) {
+    var n = numeroWhatsapp(t), u = navigator.userAgent || '';
+    if (n.length < 10) { aviso('El teléfono no tiene 10 dígitos: corríjalo antes de escribir por WhatsApp.', 0, 'error'); return false; }
+    var movil = /Mobi|Android|iPhone|iPad/i.test(u);
+    if (/Windows/i.test(u) && !movil) { location.href = 'whatsapp://send?phone=' + n + (texto ? '&text=' + encodeURIComponent(texto) : ''); return true; }
+    window.open(urlWhatsapp(t, texto), movil ? '_blank' : 'faWhatsapp');
+    return true;
+  }
+  /** Enlace de WhatsApp: abre con abrirWhatsapp (el href queda por si el script no corre). */
+  function enlaceWhatsapp(t, texto, contenido, attrs) {
+    return '<a href="' + urlWhatsapp(t, texto) + '" target="_blank" data-wa="' + esc(t) + '"' + (texto ? ' data-wa-texto="' + esc(texto) + '"' : '') + (attrs || '') + '>' + (contenido || 'WhatsApp') + '</a>';
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('[data-wa]');
+    if (!a) return;
+    e.preventDefault();
+    abrirWhatsapp(a.getAttribute('data-wa'), a.getAttribute('data-wa-texto') || '');
+  }, true);
   function urlMaps(dir, ciudad) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(dir + ', ' + (ciudad || 'Medellín') + ', Colombia'); }
   function hoyISO(dias) { var d = new Date(Date.now() + (dias || 0) * 864e5 - 5 * 3600e3); return d.toISOString().slice(0, 10); }
   var NOMBRES_ESTADO = { PROGRAMADA: 'Programada', EN_CURSO: 'En curso', EN_PAUSA: 'En pausa', CERRADA_TECNICO: 'Cerrada técnico', REVISADA: 'Revisada', LIQUIDADA: 'Liquidada', POR_FACTURAR: 'Por facturar', COMPLETADA: 'Completada', ANULADA: 'Anulada' };
@@ -1229,6 +1262,15 @@
       return n;
     }).catch(function () { return AD.notif; });
   }
+  /** Anota en la orden el recordatorio que se acaba de abrir en WhatsApp; devuelve el detalle nuevo (o null si falló). */
+  function registrarRecordatorio(id) {
+    return api('adminRecordatorio', id).then(function (nd) {
+      guardarVista('adminDetalle', [id], nd);
+      aviso('Recordatorio anotado en ' + id + '.', 0, 'exito');
+      cargarNotificaciones();
+      return nd;
+    }).catch(function (e) { aviso(e.message, 0, 'error'); return null; });
+  }
   function cerrarNotificaciones() {
     var p = $('panelNotif'); if (p) p.parentNode.removeChild(p);
     document.removeEventListener('click', clicFueraNotif, true);
@@ -1257,16 +1299,21 @@
       n.grupos.map(function (g) {
         return '<section class="ngrupo"><div class="ncab"><b>' + esc(g.titulo) + '</b><span class="cuenta">' + g.total + '</span>' +
           (g.ir !== 'inicio' || g.total > 5 ? '<button class="enlace-btn" data-ver="' + esc(g.ir) + '" data-tab="' + esc(g.tab) + '">Ver todas</button>' : '') + '</div>' +
-          g.items.slice(0, 5).map(function (x) {
+          (g.wa ? g.items : g.items.slice(0, 5)).map(function (x) {
             var nueva = g.clave === 'nuevas' && vistas.indexOf(x.id) < 0;
-            return '<button class="nitem" ' + (x.id ? 'data-orden="' + esc(x.id) + '"' : 'data-ver="inicio"') + '>' +
+            var boton = '<button class="nitem" ' + (x.id ? 'data-orden="' + esc(x.id) + '"' : 'data-ver="inicio"') + '>' +
               (x.id ? '<b>' + esc(x.id) + '</b> · ' : '') + esc(x.cliente) + (nueva ? ' <span class="nueva">Nueva</span>' : '') +
               (x.sede ? '<span class="gris"> · ' + esc(x.sede) + '</span>' : '') + '<small>' + esc(x.detalle || '') + '</small></button>';
+            if (!x.wa) return boton;
+            return '<div class="nfila">' + boton + (x.wa.tel ? enlaceWhatsapp(x.wa.tel, x.wa.texto, ICON.wa + ' Recordar', ' class="nwa" data-rec="' + esc(x.id) + '"')
+              : '<span class="gris nwa-sin">Sin teléfono</span>') + '</div>';
           }).join('') + '</section>';
       }).join('');
     p.innerHTML = '<div class="ncab-panel"><b>Pendientes</b><button class="sec" data-cerrar-notif>Cerrar</button></div><div class="ncuerpo">' + cuerpo + '</div>';
     p.querySelector('[data-cerrar-notif]').onclick = cerrarNotificaciones;
     $$('[data-orden]', p).forEach(function (b) { b.onclick = function () { cerrarNotificaciones(); ir('orden/' + b.getAttribute('data-orden')); }; });
+    // El chat ya lo abrió el clic (abrirWhatsapp); aquí solo se anota el recordatorio y la orden sale de la lista.
+    $$('[data-rec]', p).forEach(function (a) { a.addEventListener('click', function () { a.classList.add('hecho'); registrarRecordatorio(a.getAttribute('data-rec')); }); });
     $$('[data-ver]', p).forEach(function (b) {
       b.onclick = function () {
         var tab = b.getAttribute('data-tab');
@@ -1532,6 +1579,8 @@
     if (d.estado === 'POR_FACTURAR' && puede('cobrar') && !d.esperandoOC) { if (!d.siigoId) { if (d.desdeCotizacion) b('aVincular', 'Facturar desde la cotización', 'sec'); else b('aSiigo', 'Enviar a Siigo', 'sec'); } b('aFacturaOk', 'Factura terminada', 'ok'); }
     if (['COMPLETADA', 'LIQUIDADA', 'POR_FACTURAR'].indexOf(d.estado) >= 0 && puede('retorno')) b('aRetorno', 'Retorno', 'sec');
     if (['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(d.estado) >= 0 && puede('soporte')) b('aSoporte', ICON.wa + (esCobro(d) ? ' Enviar cobro' : ' Enviar soporte'), d.estado === 'CERRADA_TECNICO' || d.soporteEnviado ? 'sec' : '');
+    // Recordatorio al cliente por WhatsApp (Erika, 12/11/2026): mantenimiento por confirmar o visita de mañana.
+    if (d.recordatorio && puede('recordar')) b('aRecordar', ICON.wa + (d.recordatorio.tipo === 'MANT' ? ' Recordar mantenimiento' : ' Recordar visita') + (d.recordatorio.hecho ? ' de nuevo' : ''), d.recordatorio.hecho ? 'sec' : '');
     if (d.pendDisponibilidad && ['PROGRAMADA', 'EN_PAUSA'].indexOf(d.estado) >= 0 && puede('editar')) b('aConfirmar', 'Confirmar servicio', 'ok');
     if (d.estado === 'EN_CURSO' && puede('editar')) b('aPausar', 'Pausar', 'sec');
     if (d.estado === 'EN_PAUSA' && puede('editar')) b('aReanudar', 'Reanudar', 'ok');
@@ -1565,7 +1614,8 @@
       dato('Cliente', '<a href="#cliente/' + encodeURIComponent(d.idCliente) + '"><b>' + esc(d.cliente) + '</b></a>') + dato('NIT / CC', esc(d.nit)) +
       dato('Sede', esc(d.sede)) + dato('Dirección', '<a href="' + urlMaps(d.direccion, d.ciudad) + '" target="_blank">' + esc([d.direccion, d.barrio, d.ciudad].filter(Boolean).join(', ')) + '</a>') +
       (d.sedesExtra || []).map(function (s, i) { return dato('Sede ' + (i + 2), esc(s.nombre) + '<br><a href="' + urlMaps(s.direccion, s.ciudad) + '" target="_blank">' + esc([s.direccion, s.barrio, s.ciudad].filter(Boolean).join(', ')) + '</a>'); }).join('') +
-      dato('Contacto', esc(d.contacto) + (d.telefono ? ' · <a href="tel:' + esc(telLimpio(d.telefono)) + '">' + esc(d.telefono) + '</a> · <a href="' + urlWhatsapp(d.telefono) + '" target="_blank">WhatsApp</a>' : '')) +
+      dato('Contacto', esc(d.contacto) + (d.telefono ? ' · <a href="tel:' + esc(telLimpio(d.telefono)) + '">' + esc(d.telefono) + '</a> · ' + enlaceWhatsapp(d.telefono) : '')) +
+      (d.recordatorio && d.recordatorio.hecho ? dato(d.recordatorio.tipo === 'MANT' ? 'Mantenimiento recordado' : 'Visita recordada', esc(d.recordatorio.hecho)) : '') +
       dato('Equipos', d.equipos.map(esc).join('<br>') || '<span class="gris">Sin equipos</span>') + '</dl></div>' +
       '<div class="tarjeta"><h2>Servicio</h2><dl class="datos">' +
       dato('Tipo de orden', d.tipoOrden === 'GARANTIA' ? 'Garantía · caso <b>' + esc(d.numeroCaso) + '</b>' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro <span class="gris">(al revisarlo queda completado)</span>' : 'Orden de servicio') +
@@ -1610,7 +1660,8 @@
         dato('Soporte enviado', d.soporteEnviado ? esc(d.soporteEnviado).replace(/\n/g, '<br>') : '') + dato('Placas escaneadas', placas) + '</dl>' +
         (d.firmaId ? '<h3>Firma de quien recibe</h3><a href="' + urlDrive(d.firmaId) + '" target="_blank" data-vfoto="' + esc(d.firmaId) + '" data-vtipo="FIRMA"><img src="' + PIXEL + '" data-cargar="' + esc(d.firmaId) + '" data-fid="' + esc(d.firmaId) + '" alt="Firma de quien recibe" style="max-width:260px;border:1px solid var(--borde);border-radius:8px;background:#fff"></a>' : '') +
         '</div>' : '') +
-      (d.fotos.length ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between">Evidencias' + (d.carpetaId ? '<a style="font-size:14px" href="' + urlCarpeta(d.carpetaId) + '" target="_blank">Abrir carpeta en Drive</a>' : '') + '</h2>' +
+      (d.fotos.length || puedeEvidencia(d) ? '<div class="tarjeta"><h2 style="display:flex;justify-content:space-between">Evidencias' + (d.carpetaId ? '<a style="font-size:14px" href="' + urlCarpeta(d.carpetaId) + '" target="_blank">Abrir carpeta en Drive</a>' : '') + '</h2>' +
+        (puedeEvidencia(d) ? botonesEvidencia('dEv') : '') +
         fotos(['ANTES', 'DESPUES', 'EVIDENCIA'], 'Fotos') + fotos('VIDEO', 'Videos') + fotos('PLACA', 'Placas') + '</div>' : '') +
       (d.liquidadoPor || d.formaPago || d.factura || d.siigoError ? '<div class="tarjeta"><h2>Liquidación, cobro y factura</h2><dl class="datos">' +
         dato('Adicionales', esc(d.adicionales)) + dato('Forma de pago', esc(NOMBRES_PAGO[d.formaPago] || d.formaPago)) +
@@ -1642,6 +1693,13 @@
     };
     accion('aRevisar', function () { ejecutar(this, api('adminRevisar', d.id), d.enRetorno ? 'Retorno completado.' : d.tipoOrden === 'SIN_COBRO' ? 'Servicio sin cobro completado.' : 'Orden revisada: pasa a liquidación.'); });
     accion('aDevolver', function () { pedirTexto('Devolver al técnico', 'Motivo (el técnico lo verá en el historial)', function (t, m) { return api('adminDevolver', d.id, t).then(function (nd) { m.remove(); aviso('Orden devuelta al técnico.', 0, 'exito'); pintarDetalle(cont, nd); }); }); });
+    accion('aRecordar', function () {
+      var boton = this;
+      if (!d.telefono) { aviso('La orden no tiene teléfono de contacto: use Editar para agregarlo.', 0, 'error'); return; }
+      if (!abrirWhatsapp(d.telefono, d.recordatorio.texto)) return;
+      boton.disabled = true;
+      registrarRecordatorio(d.id).then(function (nd) { if (nd) pintarDetalle(cont, nd); else boton.disabled = false; });
+    });
     accion('aLiquidar', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aRevLiq', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }, { revisar: true }); });
     accion('aLiqGa', function () { modalLiquidar(d, function (nd) { pintarDetalle(cont, nd); }, { revisar: true }); });
@@ -1691,6 +1749,7 @@
       };
     });
     accion('aSeguimiento', function () { modalSeguimiento(d, function (nd) { pintarDetalle(cont, nd); }); });
+    if (puedeEvidencia(d)) activarEvidencia('dEv', d.id, function (nd) { pintarDetalle(cont, nd); });
     accion('aFacturaOk', function () {
       var m = modal('Factura terminada', '<p>Confirme que la factura quedó terminada en Siigo. La orden pasa a <b>Completada</b>.</p><label>Número de factura de Siigo</label><input id="mFact" value="' + esc(d.factura && !/^ENVIANDO/.test(d.factura) ? d.factura : '') + '" placeholder="Ej: FV-1-2345"><div class="acciones der"><button id="mOk" class="ok">Completar orden</button></div><p id="mMsg"></p>', 480);
       m.querySelector('#mOk').onclick = function () { var bt = this; bt.disabled = true; api('adminFacturaTerminada', d.id, $('mFact').value).then(function (nd) { m.remove(); aviso('Orden completada.', 0, 'exito'); pintarDetalle(cont, nd); }).catch(function (e) { $('mMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; bt.disabled = false; }); };
@@ -1789,7 +1848,7 @@
         if ($('spWa')) $('spWa').onclick = function () {
           var dest = $('spDest').value.trim();
           if (dest.replace(/\D/g, '').length < 10) { marcarError($('spDest'), 'Escriba un WhatsApp de 10 dígitos.'); return; }
-          window.open(urlWhatsapp(dest) + '?text=' + encodeURIComponent($('spMsg').value), '_blank');
+          abrirWhatsapp(dest, $('spMsg').value);
           api('adminSoporteWhatsapp', d.id, dest).then(function (nd) { m.remove(); aviso('Chat del cliente abierto con el link del soporte.', 0, 'exito'); listo(nd); }).catch(function (e) { aviso(e.message, 0, 'error'); });
         };
       };
@@ -1856,6 +1915,71 @@
   var PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
   var COLA_FOTOS = [], FOTOS_CARGANDO = 0;
   /** Carga la foto desde el servidor (de a 3 a la vez) y la guarda en memoria para no pedirla de nuevo. */
+  /**
+   * Evidencias desde la oficina (pedido de Samuel, 13/11/2026): quien edita sube fotos, fotos de placa y videos a una
+   * orden ya cerrada por el técnico, sin devolvérsela. Las fotos se reducen como en el celular; el video va por partes.
+   */
+  var ESTADOS_EVIDENCIA_OFICINA = ['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'];
+  function puedeEvidencia(d) { return puede('editar') && ESTADOS_EVIDENCIA_OFICINA.indexOf(d.estado) >= 0; }
+  function botonesEvidencia(p) {
+    return '<div class="acciones" style="margin:4px 0 10px">' +
+      '<button type="button" class="sec" id="' + p + 'Fotos">' + ICON.mas + ' Agregar fotos</button>' +
+      '<button type="button" class="sec" id="' + p + 'Video">' + ICON.mas + ' Agregar video</button>' +
+      '<button type="button" class="sec" id="' + p + 'Placa">' + ICON.mas + ' Foto de placa</button>' +
+      '<input type="file" id="' + p + 'InFotos" accept="image/*" multiple hidden><input type="file" id="' + p + 'InPlaca" accept="image/*" multiple hidden>' +
+      '<input type="file" id="' + p + 'InVideo" accept="video/*" hidden></div><p class="gris" id="' + p + 'Msg" style="margin:-4px 0 8px"></p>';
+  }
+  function activarEvidencia(p, id, listo) {
+    var msg = function (t, tipo) { var el = $(p + 'Msg'); if (el) el.innerHTML = tipo === 'error' ? '<span class="error">' + esc(t) + '</span>' : esc(t); };
+    var ocupado = function (si) { ['Fotos', 'Video', 'Placa'].forEach(function (k) { var b = $(p + k); if (b) b.disabled = si; }); };
+    var terminar = function (texto) {
+      return api('adminDetalle', id).then(function (nd) { guardarVista('adminDetalle', [id], nd); aviso(texto, 0, 'exito'); ocupado(false); msg(''); listo(nd); });
+    };
+    var fallo = function (e) { ocupado(false); msg(e.message, 'error'); aviso(e.message, 0, 'error'); };
+    var fotos = function (tipo, files) {
+      files = Array.prototype.slice.call(files || []);
+      if (!files.length) return;
+      ocupado(true);
+      var i = 0;
+      var una = function () {
+        if (i >= files.length) return terminar(files.length === 1 ? 'Foto agregada.' : files.length + ' fotos agregadas.');
+        msg('Subiendo foto ' + (i + 1) + ' de ' + files.length + '…');
+        var f = files[i++];
+        return reducirImagen(f, tipo === 'PLACA' ? 1800 : 1280, tipo === 'PLACA' ? 0.8 : 0.72).then(function (dataUrl) {
+          return api('adminSubirFoto', id, tipo, dataUrl, Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+        }).then(una);
+      };
+      una().catch(fallo);
+    };
+    var video = function (file) {
+      if (!file) return;
+      if (file.size > MAX_VIDEO) { msg('El video pesa ' + Math.round(file.size / 1048576) + ' MB y el máximo es 150 MB.', 'error'); return; }
+      ocupado(true);
+      var clave = Date.now() + '-' + Math.random().toString(36).slice(2, 8), mime = file.type || 'video/mp4', ini = 0, reinicios = 0;
+      var paso = function () {
+        msg('Subiendo video… ' + Math.round(ini * 100 / file.size) + ' %');
+        return base64De(file.slice(ini, Math.min(ini + PARTE_VIDEO, file.size))).then(function (b64) {
+          return api('adminVideoParte', id, clave, ini, file.size, mime, b64);
+        }).then(function (r) {
+          if (r.id) return terminar('Video agregado.');
+          if (r.reiniciar) { if (++reinicios > 2) throw new Error('Drive no aceptó el video. Intente de nuevo.'); ini = 0; return paso(); }
+          if (!(r.siguiente > ini)) throw new Error('Drive no recibió esa parte del video. Intente de nuevo.');
+          ini = r.siguiente; return paso();
+        });
+      };
+      paso().catch(fallo);
+    };
+    var enlazar = function (k, fn) {
+      var b = $(p + k), inp = $(p + 'In' + k);
+      if (!b || !inp) return;
+      b.onclick = function () { inp.value = ''; inp.click(); };
+      inp.onchange = function () { fn(inp.files); };
+    };
+    enlazar('Fotos', function (f) { fotos('EVIDENCIA', f); });
+    enlazar('Placa', function (f) { fotos('PLACA', f); });
+    enlazar('Video', function (f) { video(f[0]); });
+  }
+
   function fotoAdm(img, ods) {
     var ref = img.getAttribute('data-cargar');
     AD.fotos = AD.fotos || {};
@@ -2022,11 +2146,17 @@
       '<p class="gris" style="margin-top:4px">Solo las ve la empresa y el técnico; no salen en el soporte. Quedan guardadas para las próximas órdenes de este cliente, igual que "Requiere enviar permisos".</p></div></div>' +
       '<div class="tarjeta" id="oFichaBox"' + (pre.tipoOrden === 'SIN_COBRO' ? ' style="display:none"' : '') + '><h2>Ficha técnica</h2><label class="chk"><input type="checkbox" id="oFichaOn"' + ((pre.fichas || []).length ? ' checked' : '') + '> Agregar ficha técnica (control de mantenimiento preventivo)</label>' +
       '<p class="gris">Llene lo que tenga; el técnico debe completarla en el sitio. Se crea una por cada equipo marcado.</p><div id="oFichas"></div></div>' +
-      (editar && (pre.trabajo || pre.recibeNombre || pre.horaCierre) ? '<div class="tarjeta"><h2>Datos del cierre del técnico</h2><label>Estado del artefacto</label>' + opciones('oArt', AD.cat.estadoArtefacto, pre.estadoArtefacto || [], true) +
+      (editar && (pre.trabajo || pre.recibeNombre || pre.horaCierre || ESTADOS_EVIDENCIA_OFICINA.indexOf(pre.estado) >= 0) ? '<div class="tarjeta"><h2>Datos del cierre del técnico</h2><label>Estado del artefacto</label>' + opciones('oArt', AD.cat.estadoArtefacto, pre.estadoArtefacto || [], true) +
         '<label>Trabajo realizado y observaciones</label><textarea id="oTrabajo">' + esc([pre.trabajo, pre.obs].filter(Boolean).join('\n')) + '</textarea>' +
         '<div class="fila"><div><label>Recibe</label><input id="oRecibe" value="' + esc(pre.recibeNombre || '') + '"></div><div><label>Documento</label><input id="oRecibeDoc" value="' + esc(pre.recibeDoc || '') + '"></div></div></div>' : '') +
+      (editar && puedeEvidencia(pre) ? '<div class="tarjeta"><h2>Fotos y videos del servicio</h2><p class="gris" style="margin-top:0">Se guardan de una vez en la orden (no hace falta Guardar cambios). Hay ' + ((pre.fotos || []).filter(function (f) { return f.tipo !== 'VIDEO'; }).length) + ' foto(s) y ' + ((pre.fotos || []).filter(function (f) { return f.tipo === 'VIDEO'; }).length) + ' video(s); para verlas o eliminarlas, abra la orden.</p>' + botonesEvidencia('oEv') + '</div>' : '') +
       '<div class="acciones der"><button class="sec" id="oCancelar">Cancelar</button><button id="oGuardar">' + (editar ? 'Guardar cambios' : 'Crear orden') + '</button></div><p id="oMsg" style="text-align:right"></p>';
     activarOpciones(cont);
+    if (editar && puedeEvidencia(pre)) activarEvidencia('oEv', id, function (nd) {
+      var n = (nd.fotos || []).length;
+      pre.fotos = nd.fotos;
+      var p = $('oEvMsg'); if (p) p.textContent = 'La orden tiene ' + n + ' archivo(s) de evidencia.';
+    });
     // El responsable no aparece como apoyo; sin responsable no se escoge apoyo.
     function pintarApoyo() {
       var resp = $('oTec').value, g = document.querySelector('[data-opciones="oApoyo"]'); if (!g) return;
@@ -2979,7 +3109,7 @@
   var COL_TIPOS_MER = { t: 'Servicios prestados', k: 'tipos', movil: false, csv: function (f) { return (f.tipos || []).map(function (t) { return NOMBRES_TIPO[t] || t; }).join(', '); }, fmt: function (f) { return esc((f.tipos || []).map(function (t) { return NOMBRES_TIPO[t] || t; }).join(', ')); } };
 
   function botonesContacto(f) {
-    return f.telefono ? '<a href="tel:' + esc(telLimpio(f.telefono)) + '">' + esc(f.telefono) + '</a> · <a href="' + urlWhatsapp(f.telefono) + '" target="_blank">WhatsApp</a>' : '<span class="gris">Sin teléfono</span>';
+    return f.telefono ? '<a href="tel:' + esc(telLimpio(f.telefono)) + '">' + esc(f.telefono) + '</a> · ' + enlaceWhatsapp(f.telefono) : '<span class="gris">Sin teléfono</span>';
   }
 
   function mercadeoFijos(c) {
@@ -2995,9 +3125,26 @@
           { t: 'Equipos', k: 'equipos', der: true, movil: false }, { t: 'Frecuencia', k: 'frecuencia', movil: false }, COL_TIPOS_MER,
           { t: 'Último servicio', k: 'ultimo' },
           { t: 'Le toca', k: 'proximo', fmt: function (f) { return f.vencido ? '<span class="error"><b>' + esc(f.proximo || 'Sin fecha') + '</b></span>' : esc(f.proximo); } },
+          { t: 'Recordatorio', k: 'recordado', csv: function (f) { return f.recordado || ''; }, fmt: function (f) {
+            if (f.odsAbierta) return '<span class="gris">Desde la orden</span>';
+            var boton = puede('recordar') && f.telefono ? enlaceWhatsapp(f.telefono, f.textoRecordatorio, ICON.wa + (f.recordado ? ' De nuevo' : ' Recordar'), ' class="btn-wa' + (f.recordado ? ' sec' : '') + '" data-recfijo="' + esc(f.idSede) + '"') : '';
+            return boton + (f.recordado ? '<div class="gris">Recordado ' + esc(f.recordado) + '</div>' : (f.telefono ? '' : '<span class="gris">Sin teléfono</span>'));
+          } },
           { t: '', k: 'odsAbierta', csv: function (f) { return f.odsAbierta; }, fmt: function (f) { return f.odsAbierta ? '<a href="#orden/' + encodeURIComponent(f.odsAbierta) + '">' + esc(f.odsAbierta) + '</a>' : (puede('crear') ? '<button class="sec" data-crear="' + esc(f.idCliente) + '|' + esc(f.idSede) + '">Crear ODS</button>' : ''); } }
         ],
-        alPintar: function (raiz) { activarCrearDesde(raiz); }
+        alPintar: function (raiz) {
+          activarCrearDesde(raiz);
+          $$('[data-recfijo]', raiz).forEach(function (a) {
+            a.addEventListener('click', function () {
+              var idSede = a.getAttribute('data-recfijo');
+              api('mercadeoRecordatorio', idSede).then(function () {
+                aviso('Recordatorio anotado.', 0, 'exito');
+                var k = claveVista('mercadeoFijos', [{ dias: dias }]); if (VISTAS[k]) VISTAS[k].t = 0;
+                mercadeoFijos(c);
+              }).catch(function (e) { aviso(e.message, 0, 'error'); });
+            });
+          });
+        }
       });
       $('mfDias').onchange = function () { AD.merDias = Number(this.value); mercadeoFijos(c); };
       $('mTipo').onchange = function () { AD.merTipo = this.value; mercadeoFijos(c); };
