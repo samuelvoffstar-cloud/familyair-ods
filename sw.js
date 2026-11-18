@@ -1,5 +1,5 @@
-/* Family Air ODS · versión fb67d490b4. Lo genera test/web-build.js. */
-const CACHE = 'familyair-ods-fb67d490b4';
+/* Family Air ODS · versión a3fc953448. Lo genera test/web-build.js. */
+const CACHE = 'familyair-ods-a3fc953448';
 const ARCHIVOS = ['./', './index.html', './manifest.json', './icono-180.png', './icono-192.png', './icono-512.png', './privacidad.html', './terminos.html'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
