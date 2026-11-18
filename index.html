@@ -1218,11 +1218,24 @@
     var s = leerLocal('fa_ses');
     if (!s || !s.token) return;
     SES = s; arrancar();
-    apiSinToken('validarSesion', s.token).then(function (v) {
-      if (v) { s.permisos = v.permisos; SES.permisos = v.permisos; guardarLocal('fa_ses', s); }
+    confirmarSesion(s);
+  });
+  function confirmarSesion(s) {
+    return apiSinToken('validarSesion', s.token).then(function (v) {
+      if (v) {
+        // Si los permisos cambiaron desde que inició sesión (ej. una sección que ahora es solo del administrador), el menú
+        // se vuelve a pintar de una vez y, si estaba en una sección que ya no puede ver, vuelve al Inicio (caso Lucas, 18/11/2026).
+        var cambio = JSON.stringify(v.permisos || {}) !== JSON.stringify(SES.permisos || {});
+        s.permisos = v.permisos; SES.permisos = v.permisos; guardarLocal('fa_ses', s);
+        if (cambio && $('nav') && typeof pintarMenu === 'function') {
+          pintarMenu();
+          var sec = (typeof SECCIONES !== 'undefined' ? SECCIONES : []).filter(function (x) { return x.id === AD.seccion; })[0];
+          if (sec && !puede(sec.permiso)) ir('inicio');
+        }
+      }
       else if (SES && SES.token === s.token) cerrarSesion(true);
     }).catch(function () { /* sin señal: se sigue trabajando con la sesión guardada */ });
-  });
+  }
 </script>
 <script>
   // ================= PANEL ADMINISTRATIVO =================
