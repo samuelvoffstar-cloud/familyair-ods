@@ -3614,25 +3614,13 @@
     var items = itemsCal(datos, c), dias = [];
     for (var d = r.desde; d <= r.hasta; d = sumarDias(d, 1)) if (items.some(function (x) { return enDia(x, d); })) dias.push(d);
     var html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Calendario</title><style>body{font:13px Arial,sans-serif;color:#222;margin:24px}h1{font-size:18px}h2{font-size:14px;border-bottom:1px solid #999;margin:16px 0 6px;padding-bottom:3px}' +
-      'div.i{padding:3px 0 3px 8px;border-left:4px solid #999;margin:4px 0}small{color:#555}</style></head><body><h1>Family Air · Calendario · ' + esc(tituloCal(c.vista, c.fecha, r)) + '</h1>' +
+      'div.i{padding:3px 0 3px 8px;border-left:4px solid #999;margin:4px 0}small{color:#555}<\/style><\/head><body><h1>Family Air · Calendario · ' + esc(tituloCal(c.vista, c.fecha, r)) + '</h1>' +
       (dias.length ? dias.map(function (d) {
         return '<h2>' + DIAS_CORTO[diaSemana(d)] + ' ' + fechaTexto(d, true) + '</h2>' + items.filter(function (x) { return enDia(x, d); }).map(function (x) {
           if (x.tipo === 'evento') return '<div class="i" style="border-color:' + x.color + '"><b>' + esc(x.e.todoElDia ? 'Todo el día' : horaBonita(x.e.hora) + ' – ' + horaBonita(x.e.horaFin)) + '</b> ' + esc(x.e.titulo) + (x.e.ubicacion ? '<br><small>' + esc(x.e.ubicacion) + '</small>' : '') + '</div>';
           var o = x.o; return '<div class="i" style="border-color:' + x.color + '"><b>' + esc(o.hora ? horaBonita(o.hora) : 'Sin hora') + '</b> ' + esc(o.id + ' · ' + o.cliente) + '<br><small>' + esc([NOMBRES_TIPO[o.tipoServicio], tecnicosOrden(o) || 'Sin técnico', o.sede, o.direccion, NOMBRES_ESTADO[o.estado]].filter(Boolean).join(' · ')) + '</small></div>';
         }).join('');
-      }).join('') : '<p>Sin servicios ni eventos.</p>') + '
-<script>
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').then(function (reg) {
-      reg.addEventListener('updatefound', function () {
-        var w = reg.installing; if (!w) return;
-        w.addEventListener('statechange', function () {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) aviso('Hay una versión nueva de la app. Toque aquí para actualizar.', 20000, '', function () { location.reload(); });
-        });
-      });
-    }).catch(function () {});
-  }
-</script></body></html>';
+      }).join('') : '<p>Sin servicios ni eventos.</p>') + '<\/body><\/html>';
     var f = document.createElement('iframe');
     f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
     document.body.appendChild(f);
@@ -3673,7 +3661,7 @@
   function documentoCorreo(html, imagenes) {
     var csp = "default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:" + (imagenes ? ' https: http:' : '');
     return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><base target="_blank">' +
-      '<style>body{font:14px/1.5 Arial,Helvetica,sans-serif;margin:6px;color:#1f2a37;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>' + html + '</body></html>';
+      '<style>body{font:14px/1.5 Arial,Helvetica,sans-serif;margin:6px;color:#1f2a37;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{max-width:100%}<\/style><\/head><body>' + html + '<\/body><\/html>';
   }
   function pintarHtmlCorreo(cont, html, imagenes) {
     var f = document.createElement('iframe');
@@ -3915,7 +3903,7 @@
         var w = window.open('', '_blank');
         if (!w) { aviso('Permita las ventanas emergentes para imprimir.', 0, 'error'); return; }
         w.document.write('<!doctype html><meta charset="utf-8"><title>' + esc(h.asunto) + '</title><body style="font:14px Arial;margin:24px"><h2>' + esc(h.asunto) + '</h2>' +
-          h.mensajes.map(function (x) { return '<hr><p><b>' + esc(x.de) + '</b> &lt;' + esc(x.correo) + '&gt; · ' + esc(x.fecha) + '<br>Para: ' + esc(x.para) + '</p><div style="white-space:pre-wrap">' + esc(x.texto) + '</div>'; }).join('') + '</body>');
+          h.mensajes.map(function (x) { return '<hr><p><b>' + esc(x.de) + '</b> &lt;' + esc(x.correo) + '&gt; · ' + esc(x.fecha) + '<br>Para: ' + esc(x.para) + '</p><div style="white-space:pre-wrap">' + esc(x.texto) + '</div>'; }).join('') + '<\/body>');
         w.document.close(); w.focus(); w.print();
       };
       var bajar = function (dat, ver) {
@@ -5353,5 +5341,17 @@
   }
 </script>
 
-</body>
+
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      reg.addEventListener('updatefound', function () {
+        var w = reg.installing; if (!w) return;
+        w.addEventListener('statechange', function () {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) aviso('Hay una versión nueva de la app. Toque aquí para actualizar.', 20000, '', function () { location.reload(); });
+        });
+      });
+    }).catch(function () {});
+  }
+</script></body>
 </html>
