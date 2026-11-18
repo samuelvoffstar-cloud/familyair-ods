@@ -253,6 +253,14 @@
   .as-voz { margin-right: 4px; }
   #asDictar.activo { border-color: #d50000; color: #d50000; }
   .as-botones { flex-wrap: wrap; }
+  .as-convfila{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--borde,#e3e8ee);padding:10px 4px;cursor:pointer;font:inherit;color:inherit}
+.as-convfila:hover{background:rgba(22,119,214,.06)}
+.as-convfila span{font-size:14px}
+#acBuscar{width:100%;margin-top:4px}
+.as-msg.as-aviso{background:none;box-shadow:none;padding:2px 0;font-size:13px}
+.as-caso { border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+  .as-caso small { display: block; margin: 2px 0 6px; }
+  .as-caso textarea { width: 100%; }
   .as-nombre { display: block; font-size: 13px; color: var(--primario); margin-bottom: 4px; }
   .as-adj:hover { background: var(--primario-claro); }
   /* Prospectos (18/11/2026) */
@@ -3859,15 +3867,17 @@
     });
   }
   function chatAsesor(raiz, orden) {
-    var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false;
+    var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false, convId = '';
     raiz.innerHTML = '<div class="as-estado gris" id="asEstado">Cargando…</div>' +
       (orden ? '<p class="gris as-ctx">Airton ya conoce los equipos, el tipo de servicio y la falla de <b>' + esc(orden.id) + '</b> (sin datos personales del cliente).</p>' : '') +
-      '<div class="as-chat" id="asChat"><p class="gris as-vacio">Pregúntele a Airton, el ingeniero de Family Air: fallas, códigos de error, presiones, procedimientos, repuestos. Puede escribir, dictar con 🎤 o conversar por voz, y adjuntar fotos de la placa, la tarjeta o el código en pantalla.</p></div>' +
+      '<div class="as-chat" id="asChat"><p class="gris as-vacio">Pregúntele a Airton, el ingeniero de Family Air: fallas, códigos de error, presiones, procedimientos y repuestos, y también cómo se hace algo en la app, precios o políticas de la empresa. Puede escribir, dictar con 🎤 o conversar por voz, y adjuntar fotos de la placa, la tarjeta o el código en pantalla.</p></div>' +
       '<div class="as-foto" id="asFoto" style="display:none"></div>' +
       '<div class="as-conv" id="asConv" style="display:none"><span class="as-onda"></span><span id="asConvTxt">Escuchando…</span><button class="sec" id="asConvFin">Terminar conversación</button></div>' +
       '<div class="as-entrada"><textarea id="asPregunta" rows="3" placeholder="Ej.: Mini split LG de 12.000 BTU R-410A, la condensadora arranca y se apaga a los 3 minutos. ¿Qué reviso?"></textarea>' +
       '<div class="as-botones">' +
         (RECONOCER ? '<button class="sec" id="asDictar" title="Dictar la pregunta">🎤 Dictar</button><button class="sec" id="asConversar" title="Hablar con Airton sin usar las manos">🎧 Conversar</button>' : '') +
+        '<button class="sec" id="asNueva" style="display:none" title="Empezar de cero (la anterior queda guardada)">＋ Nueva conversación</button>' +
+        '<button class="sec" id="asCaso" style="display:none" title="Guardar lo que se resolvió para que Airton lo sepa siempre">📌 Guardar caso</button>' +
         '<label class="as-adj">📷 Foto<input type="file" id="asArchivo" accept="image/*" hidden></label><button id="asEnviar">Preguntar</button></div>' +
       (RECONOCER ? '' : '<p class="gris" style="margin:6px 0 0;font-size:13px">Este navegador no permite dictar. Para hablar con Airton use Chrome o Safari.</p>') + '</div>';
     var q = function (sel) { return raiz.querySelector(sel); };
@@ -3884,6 +3894,26 @@
       var v = q('.as-vacio'); if (v) v.remove();
       var d = document.createElement('div'); d.className = 'as-msg ' + rol + (clase ? ' ' + clase : ''); d.innerHTML = html;
       q('#asChat').appendChild(d); d.scrollIntoView({ block: 'nearest' }); return d;
+    };
+    var pintarRespuesta = function (el, texto, costo) {
+      el.innerHTML = '<b class="as-nombre">Airton</b>' + textoAsesor(texto) + '<div class="as-pie"><button class="link" data-oir>🔊 Escuchar</button>' + (costo != null ? '<small class="gris">Costo USD ' + String(costo).replace('.', ',') + '</small>' : '') + '</div>';
+      el.querySelector('[data-oir]').onclick = function () { audioListo(); hablar(texto); };
+    };
+    // Memoria: la conversación de esta persona en esta orden (30 días; sin orden, la de hoy) se retoma donde iba.
+    api('adminAirtonConversacion', { idOrden: orden ? orden.id : '' }).then(function (c) {
+      if (!c || !c.turnos || !c.turnos.length || hist.length || cerrado) return;
+      convId = c.id;
+      agregar('asesor', '<span class="gris">Conversación guardada del ' + esc(String(c.actualizada).slice(0, 10)) + '. Siga donde iba o toque ＋ Nueva conversación.</span>', 'as-aviso');
+      c.turnos.forEach(function (t) {
+        if (t.rol === 'yo') agregar('yo', textoAsesor(t.texto)); else pintarRespuesta(agregar('asesor', ''), t.texto, null);
+        hist.push({ rol: t.rol, texto: t.texto });
+      });
+      q('#asNueva').style.display = ''; q('#asCaso').style.display = '';
+    }).catch(function () {});
+    q('#asNueva').onclick = function () {
+      hist = []; convId = ''; callar();
+      q('#asChat').innerHTML = '<p class="gris as-vacio">Conversación nueva. Pregúntele a Airton lo que necesite.</p>';
+      this.style.display = 'none'; q('#asCaso').style.display = 'none';
     };
     q('#asArchivo').onchange = function () {
       var f = this.files[0]; this.value = ''; if (!f) return;
@@ -3902,12 +3932,14 @@
       q('#asPregunta').value = ''; foto = null; q('#asFoto').style.display = 'none';
       q('#asEnviar').disabled = true;
       if (conversando) q('#asConvTxt').textContent = 'Airton está pensando…';
-      api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), foto: conFoto, voz: !!voz }).then(function (r) {
+      api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), foto: conFoto, voz: !!voz, conversacionId: convId }).then(function (r) {
         if (cerrado) return;
         espera.classList.remove('esperando');
-        espera.innerHTML = '<b class="as-nombre">Airton</b>' + textoAsesor(r.respuesta) + '<div class="as-pie"><button class="link" data-oir>🔊 Escuchar</button><small class="gris">Costo USD ' + String(r.costo).replace('.', ',') + '</small></div>';
-        espera.querySelector('[data-oir]').onclick = function () { audioListo(); hablar(r.respuesta); };
+        pintarRespuesta(espera, r.respuesta, r.costo);
+        if (r.conversacionId) convId = r.conversacionId;
+        q('#asNueva').style.display = '';
         hist.push({ rol: 'yo', texto: pregunta || '(foto)' }, { rol: 'asesor', texto: r.respuesta });
+        q('#asCaso').style.display = '';
         pintarEstado({ hayLlave: true, gastoMes: r.gastoMes, tope: r.tope, quedanHoy: r.quedanHoy, topeDia: r.topeDia, aviso: r.aviso });
         if (voz) { if (conversando) q('#asConvTxt').textContent = 'Airton está hablando… (toque Terminar para cortar)'; hablar(r.respuesta, luego); } else if (luego) luego();
       }).catch(function (e) {
@@ -3918,6 +3950,19 @@
       });
     };
     q('#asEnviar').onclick = function () { enviar(q('#asPregunta').value.trim(), false); };
+    // Caso resuelto: lo que se aprendió en esta conversación queda para todos cuando Samuel lo aprueba.
+    q('#asCaso').onclick = function () {
+      var preguntas = hist.filter(function (h) { return h.rol === 'yo'; }).map(function (h) { return h.texto; }).join(' / ');
+      var ultima = (hist.filter(function (h) { return h.rol === 'asesor'; }).pop() || {}).texto || '';
+      var m = modal('Guardar como caso resuelto', '<p class="gris" style="margin-top:0">Cuente qué falla tenía el equipo y cómo se resolvió. Samuel lo revisa y, si lo aprueba, Airton lo sabrá en todas las consultas.</p>' +
+        '<label for="acTitulo">Título</label><input id="acTitulo" maxlength="150" placeholder="Ej.: LG 12.000 R-410A se apaga a los 3 minutos: capacitor del compresor">' +
+        '<label for="acCaso">Qué pasó y cómo se resolvió</label><textarea id="acCaso" rows="7">' + esc(('Equipo y falla: ' + preguntas + '\n\nSolución: ' + textoParaHablar(ultima)).slice(0, 2500)) + '</textarea>' +
+        '<div class="acciones der"><button id="acOk">Guardar caso</button></div>', 620);
+      m.querySelector('#acOk').onclick = function () {
+        var t = m.querySelector('#acTitulo').value.trim(); if (!t) return marcarError(m.querySelector('#acTitulo'), 'Escriba un título.');
+        api('adminAirtonCaso', { titulo: t, caso: m.querySelector('#acCaso').value, idOrden: orden ? orden.id : '' }).then(function () { m.remove(); aviso('Caso guardado. Samuel lo revisa para que Airton lo aprenda.', 5000, 'exito'); }).catch(function (e) { aviso(e.message, 6000, 'error'); });
+      };
+    };
     q('#asPregunta').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) q('#asEnviar').click(); });
     if (!RECONOCER) return;
     // Escucha una frase y entrega el texto (con lo provisional en el cuadro mientras habla).
@@ -3970,8 +4015,46 @@
   }
   function vistaAsesor() {
     var cont = pagina('Airton · Ingeniero de climatización');
-    cont.innerHTML = '<div class="tarjeta" id="asRaiz"></div>';
+    cont.innerHTML = (tieneRol('ADMIN') ? '<div class="tarjeta" id="asSaber"><h2>Lo que sabe Airton</h2><p class="gris">Cargando…</p></div>' : '') + '<div class="tarjeta" id="asRaiz"></div>' +
+      (tieneRol('ADMIN') ? '<div class="tarjeta" id="asConvs"><h2>Conversaciones con Airton</h2><input id="acBuscar" type="search" placeholder="Buscar por persona, orden o tema"><div id="acLista"><p class="gris">Cargando…</p></div></div>' : '');
     chatAsesor($('asRaiz'), null);
+    if (tieneRol('ADMIN')) { pintarSaberAirton(); pintarConversacionesAirton(''); var tb; $('acBuscar').oninput = function () { var v = this.value; clearTimeout(tb); tb = setTimeout(function () { pintarConversacionesAirton(v); }, 350); }; }
+  }
+  // Todas las conversaciones guardadas (memoria de Airton, solo Samuel).
+  function pintarConversacionesAirton(buscar) {
+    var box = $('acLista'); if (!box) return;
+    api('adminAirtonConversaciones', { buscar: buscar }).then(function (l) {
+      if (!$('acLista')) return;
+      box.innerHTML = l.length ? '<p class="gris" style="margin:8px 0">Lo que se habló de una orden o sede, Airton lo recuerda cuando alguien vuelve a preguntar por ella. Los lunes propone casos para aprobar arriba.</p>' + l.map(function (c) {
+        return '<button class="as-convfila" data-id="' + esc(c.id) + '"><b>' + esc(c.nombre) + (c.orden ? ' · ' + esc(c.orden) : '') + '</b><small class="gris">' + esc(c.actualizada) + ' · ' + c.turnos + (c.turnos === 1 ? ' pregunta' : ' preguntas') + '</small><span>' + esc(c.resumen) + '</span></button>';
+      }).join('') : '<p class="gris">' + (buscar ? 'Nada con esa búsqueda.' : 'Todavía no hay conversaciones guardadas.') + '</p>';
+      $$('.as-convfila', box).forEach(function (b) {
+        b.onclick = function () {
+          api('adminAirtonVerConversacion', b.getAttribute('data-id')).then(function (c) {
+            modal('Conversación de ' + c.nombre + (c.orden ? ' · ' + c.orden : ''), (c.resumen ? '<p class="gris" style="margin-top:0"><b>Resumen:</b> ' + esc(c.resumen) + '</p>' : '') +
+              '<div class="as-chat">' + c.turnos.map(function (t) { return '<div class="as-msg ' + (t.rol === 'yo' ? 'yo' : 'asesor') + '">' + (t.rol === 'yo' ? '' : '<b class="as-nombre">Airton</b>') + textoAsesor(t.texto) + '<small class="gris" style="display:block">' + esc(t.fecha || '') + '</small></div>'; }).join('') + '</div>', 760);
+          }).catch(function (e) { aviso(e.message, 6000, 'error'); });
+        };
+      });
+    }).catch(function (e) { box.innerHTML = '<p class="error">' + esc(e.message) + '</p>'; });
+  }
+  // Manual y casos por aprobar (solo Samuel).
+  function pintarSaberAirton() {
+    var box = $('asSaber'); if (!box) return;
+    api('adminAirtonSaber').then(function (r) {
+      box.innerHTML = '<h2>Lo que sabe Airton</h2><p style="margin-top:0">Airton responde con su conocimiento de climatización y con lo que Family Air le enseña: el <b>manual</b> (servicios, políticas, cómo se usa la app, procedimientos, proveedores), la <b>lista de tarifas</b>, el <b>historial</b> de cada sede y los <b>casos que ya resolvieron los técnicos</b>.</p>' +
+        '<p><a class="btn sec" href="' + esc(r.manualUrl) + '" target="_blank" rel="noopener">📘 Abrir el manual de Airton</a> <span class="gris">Lo que escriba ahí cuenta desde los siguientes 10 minutos. Llene donde dice [COMPLETAR].</span></p>' +
+        '<h3>Casos por aprobar (' + r.pendientes.length + ')</h3>' + (r.pendientes.length ? r.pendientes.map(function (c) {
+          return '<div class="as-caso" data-fila="' + c.fila + '"><b>' + esc(c.titulo) + '</b><small class="gris">' + esc(c.fecha + ' · ' + (c.nombre || c.usuario) + (c.orden ? ' · ' + c.orden : '')) + '</small>' +
+            '<textarea rows="5" aria-label="Texto del caso">' + esc(c.caso) + '</textarea><div class="acciones der"><button class="link link-peligro" data-no>Descartar</button><button data-si>Aprobar y enseñar a Airton</button></div></div>';
+        }).join('') : '<p class="gris">No hay casos pendientes. Los técnicos y la oficina los guardan con 📌 Guardar caso después de una conversación con Airton.</p>');
+      $$('.as-caso', box).forEach(function (el) {
+        var fila = el.getAttribute('data-fila');
+        var decidir = function (si) { api('adminAirtonCasoDecidir', fila, si, el.querySelector('textarea').value).then(function () { aviso(si ? 'Caso agregado al manual de Airton.' : 'Caso descartado.', 3500, 'exito'); pintarSaberAirton(); }).catch(function (e) { aviso(e.message, 6000, 'error'); }); };
+        el.querySelector('[data-si]').onclick = function () { decidir(true); };
+        el.querySelector('[data-no]').onclick = function () { decidir(false); };
+      });
+    }).catch(function (e) { box.innerHTML = '<h2>Lo que sabe Airton</h2><p class="error">' + esc(e.message) + '</p>'; });
   }
   function modalAsesor(d) {
     var m = modal('Airton · Ingeniero de climatización · ' + d.id, '<div id="asRaizM"></div>', 760);
