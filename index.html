@@ -3819,13 +3819,44 @@
     var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
     return vs.filter(function (v) { return /^es[-_](CO|MX|US|419)/i.test(v.lang); })[0] || vs.filter(function (v) { return /^es/i.test(v.lang); })[0] || null;
   }
-  function hablar(texto, alTerminar) {
+  // Voz natural (Google Chirp 3 HD, servidor) con volumen amplificado; si no está disponible, la voz del celular a todo volumen.
+  // El audio sale por un AudioContext que se activa con el toque de la persona (los celulares no dejan sonar audio sin un toque).
+  var CTX_AUDIO = null, FUENTE_AUDIO = null, VOZ_GOOGLE_OK = true, VOLUMEN_AIRTON = 2.4;
+  function audioListo() {
+    try {
+      if (!CTX_AUDIO) { var C = window.AudioContext || window.webkitAudioContext; if (C) CTX_AUDIO = new C(); }
+      if (CTX_AUDIO && CTX_AUDIO.state === 'suspended') CTX_AUDIO.resume();
+    } catch (e) { CTX_AUDIO = null; }
+  }
+  function callar() {
+    if (FUENTE_AUDIO) { try { FUENTE_AUDIO.onended = null; FUENTE_AUDIO.stop(); } catch (e) {} FUENTE_AUDIO = null; }
+    if (window.speechSynthesis) speechSynthesis.cancel();
+  }
+  function hablarNavegador(texto, alTerminar) {
     if (!window.speechSynthesis) { if (alTerminar) alTerminar(); return; }
-    speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(textoParaHablar(texto));
-    var v = vozEspanol(); if (v) u.voice = v; u.lang = v ? v.lang : 'es-CO'; u.rate = 1.02;
+    var v = vozEspanol(); if (v) u.voice = v; u.lang = v ? v.lang : 'es-CO'; u.rate = 1.02; u.volume = 1;
     u.onend = u.onerror = function () { if (alTerminar) alTerminar(); };
     speechSynthesis.speak(u);
+  }
+  function hablar(texto, alTerminar) {
+    callar();
+    var listo = false, fin = function () { if (listo) return; listo = true; if (alTerminar) alTerminar(); };
+    if (!CTX_AUDIO || !VOZ_GOOGLE_OK) return hablarNavegador(texto, fin);
+    llamar('adminAsesorVoz', [textoParaHablar(texto)]).then(function (r) {
+      var bin = atob(r.audio), buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      CTX_AUDIO.decodeAudioData(buf.buffer, function (audio) {
+        var src = CTX_AUDIO.createBufferSource(), g = CTX_AUDIO.createGain(), comp = CTX_AUDIO.createDynamicsCompressor();
+        src.buffer = audio; g.gain.value = VOLUMEN_AIRTON; // más fuerte; el compresor evita que se distorsione
+        src.connect(g); g.connect(comp); comp.connect(CTX_AUDIO.destination);
+        src.onended = function () { FUENTE_AUDIO = null; fin(); };
+        FUENTE_AUDIO = src; src.start(0);
+      }, function () { hablarNavegador(texto, fin); });
+    }).catch(function (e) {
+      if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false;
+      hablarNavegador(texto, fin);
+    });
   }
   function chatAsesor(raiz, orden) {
     var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false;
@@ -3875,7 +3906,7 @@
         if (cerrado) return;
         espera.classList.remove('esperando');
         espera.innerHTML = '<b class="as-nombre">Airton</b>' + textoAsesor(r.respuesta) + '<div class="as-pie"><button class="link" data-oir>🔊 Escuchar</button><small class="gris">Costo USD ' + String(r.costo).replace('.', ',') + '</small></div>';
-        espera.querySelector('[data-oir]').onclick = function () { hablar(r.respuesta); };
+        espera.querySelector('[data-oir]').onclick = function () { audioListo(); hablar(r.respuesta); };
         hist.push({ rol: 'yo', texto: pregunta || '(foto)' }, { rol: 'asesor', texto: r.respuesta });
         pintarEstado({ hayLlave: true, gastoMes: r.gastoMes, tope: r.tope, quedanHoy: r.quedanHoy, topeDia: r.topeDia, aviso: r.aviso });
         if (voz) { if (conversando) q('#asConvTxt').textContent = 'Airton está hablando… (toque Terminar para cortar)'; hablar(r.respuesta, luego); } else if (luego) luego();
@@ -3891,7 +3922,7 @@
     if (!RECONOCER) return;
     // Escucha una frase y entrega el texto (con lo provisional en el cuadro mientras habla).
     var escuchar = function (alTerminar) {
-      if (window.speechSynthesis) speechSynthesis.cancel();
+      callar();
       var rec = new RECONOCER(); oyendo = rec;
       rec.lang = 'es-CO'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
       var final = '';
@@ -3912,7 +3943,7 @@
     // Conversación: escucha → Airton responde en voz → vuelve a escuchar, hasta que la persona termine.
     var terminarConversacion = function () {
       conversando = false; if (oyendo) try { oyendo.abort(); } catch (e) {}
-      if (window.speechSynthesis) speechSynthesis.cancel();
+      callar();
       q('#asConv').style.display = 'none'; q('#asConversar').style.display = '';
     };
     var turno = function () {
@@ -3929,6 +3960,7 @@
       });
     };
     q('#asConversar').onclick = function () {
+      audioListo();
       conversando = true; silencios = 0; q('#asConv').style.display = ''; q('#asConversar').style.display = 'none';
       if (!hist.length) { q('#asConvTxt').textContent = 'Airton saluda…'; hablar('Hola, soy Airton. Cuénteme qué está pasando con el equipo.', turno); } else turno();
     };
