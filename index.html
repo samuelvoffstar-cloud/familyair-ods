@@ -1550,6 +1550,8 @@
   }
   function puedeRefrescar() {
     if (AD.enFormulario || document.querySelector('.modal')) return false;
+    // Con la sección Airton abierta no se repinta: cortaba la voz y el micrófono justo al llegar la respuesta (Samuel, 18/11/2026).
+    if (document.querySelector('#vista .as-chat')) return false;
     var a = document.activeElement;
     if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return false;
     return !$$('#vista input').some(function (i) { return i.value && !/checkbox|radio|hidden|date|time/.test(i.type); });
@@ -3837,6 +3839,7 @@
     } catch (e) { CTX_AUDIO = null; }
   }
   function callar() {
+    TURNO_VOZ++; // lo que estaba por sonar de una respuesta anterior ya no suena
     if (FUENTE_AUDIO) { try { FUENTE_AUDIO.onended = null; FUENTE_AUDIO.stop(); } catch (e) {} FUENTE_AUDIO = null; }
     if (window.speechSynthesis) speechSynthesis.cancel();
   }
@@ -3847,24 +3850,69 @@
     u.onend = u.onerror = function () { if (alTerminar) alTerminar(); };
     speechSynthesis.speak(u);
   }
-  function hablar(texto, alTerminar) {
+  // Reproduce un MP3 en base64 por el AudioContext (más fuerte, con compresor). bien() al terminar, mal() si no se pudo decodificar.
+  function tocarAudio(b64, bien, mal) {
+    var bin = atob(b64), buf = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    CTX_AUDIO.decodeAudioData(buf.buffer, function (audio) {
+      if (CTX_AUDIO.state === 'suspended') CTX_AUDIO.resume();
+      var src = CTX_AUDIO.createBufferSource(), g = CTX_AUDIO.createGain(), comp = CTX_AUDIO.createDynamicsCompressor();
+      src.buffer = audio; g.gain.value = VOLUMEN_AIRTON; // más fuerte; el compresor evita que se distorsione
+      src.connect(g); g.connect(comp); comp.connect(CTX_AUDIO.destination);
+      src.onended = function () { if (FUENTE_AUDIO === src) FUENTE_AUDIO = null; if (bien) bien(); };
+      FUENTE_AUDIO = src; src.start(0);
+    }, function () { if (mal) mal(); });
+  }
+  // Primera frase (o dos, hasta ~160 letras) y el resto: la primera suena mientras llega el audio del resto (pedido de Samuel, 18/11/2026).
+  function partirHablar(t) {
+    t = textoParaHablar(t);
+    var m = /^(.{20,160}?[.!?])\s+(.+)$/.exec(t);
+    return m ? [m[1], m[2]] : [t, ''];
+  }
+  var TURNO_VOZ = 0;
+  /**
+   * Lee el texto con la voz natural. Con vozInicio (audio de la primera frase que ya trajo la respuesta) empieza a sonar de una;
+   * si no, pide primera frase y resto al mismo tiempo. Si algo falla, la voz del celular.
+   */
+  function hablar(texto, alTerminar, vozInicio) {
     callar();
-    var listo = false, fin = function () { if (listo) return; listo = true; if (alTerminar) alTerminar(); };
+    var turno = ++TURNO_VOZ, listo = false, fin = function () { if (listo) return; listo = true; if (alTerminar) alTerminar(); };
     if (!CTX_AUDIO || !VOZ_GOOGLE_OK) return hablarNavegador(texto, fin);
-    llamar('adminAsesorVoz', [textoParaHablar(texto)]).then(function (r) {
-      var bin = atob(r.audio), buf = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-      CTX_AUDIO.decodeAudioData(buf.buffer, function (audio) {
-        var src = CTX_AUDIO.createBufferSource(), g = CTX_AUDIO.createGain(), comp = CTX_AUDIO.createDynamicsCompressor();
-        src.buffer = audio; g.gain.value = VOLUMEN_AIRTON; // más fuerte; el compresor evita que se distorsione
-        src.connect(g); g.connect(comp); comp.connect(CTX_AUDIO.destination);
-        src.onended = function () { FUENTE_AUDIO = null; fin(); };
-        FUENTE_AUDIO = src; src.start(0);
-      }, function () { hablarNavegador(texto, fin); });
+    var partes = vozInicio ? [null, vozInicio.resto || ''] : partirHablar(texto);
+    var pedir = function (t) {
+      return t ? llamar('adminAsesorVoz', [t]).then(function (r) { return r.audio; }) : Promise.resolve(null);
+    };
+    var primero = vozInicio ? Promise.resolve(vozInicio.audio) : pedir(partes[0]), resto = pedir(partes[1]);
+    var aNavegador = function (t) { if (turno === TURNO_VOZ) hablarNavegador(t, fin); };
+    resto.catch(function () {}); // se maneja abajo
+    primero.then(function (a1) {
+      if (turno !== TURNO_VOZ) return;
+      tocarAudio(a1, function () {
+        if (turno !== TURNO_VOZ) return;
+        if (!partes[1]) return fin();
+        resto.then(function (a2) {
+          if (turno !== TURNO_VOZ) return;
+          tocarAudio(a2, fin, function () { aNavegador(partes[1]); });
+        }).catch(function (e) { if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false; aNavegador(partes[1]); });
+      }, function () { aNavegador(texto); });
     }).catch(function (e) {
       if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false;
-      hablarNavegador(texto, fin);
+      aNavegador(texto);
     });
+  }
+  // Frases cortas que Airton dice apenas la persona termina de hablar, mientras piensa (se traen una vez al empezar a conversar).
+  var ACUSES = [], ACUSES_PEDIDOS = false;
+  function prepararAcuses() {
+    if (ACUSES_PEDIDOS || !CTX_AUDIO || !VOZ_GOOGLE_OK) return;
+    ACUSES_PEDIDOS = true;
+    ['Déjeme revisar.', 'Ya le digo.', 'Un momento, lo miro.'].forEach(function (f) {
+      llamar('adminAsesorVoz', [f]).then(function (r) { ACUSES.push(r.audio); }).catch(function () {});
+    });
+  }
+  function decirAcuse() {
+    if (!ACUSES.length || !CTX_AUDIO) return;
+    callar();
+    tocarAudio(ACUSES[Math.floor(Math.random() * ACUSES.length)]);
   }
   function chatAsesor(raiz, orden) {
     var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false, convId = '';
@@ -3932,6 +3980,7 @@
       q('#asPregunta').value = ''; foto = null; q('#asFoto').style.display = 'none';
       q('#asEnviar').disabled = true;
       if (conversando) q('#asConvTxt').textContent = 'Airton está pensando…';
+      if (voz) decirAcuse(); // suena de una mientras llega la respuesta
       api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), foto: conFoto, voz: !!voz, conversacionId: convId }).then(function (r) {
         if (cerrado) return;
         espera.classList.remove('esperando');
@@ -3941,7 +3990,7 @@
         hist.push({ rol: 'yo', texto: pregunta || '(foto)' }, { rol: 'asesor', texto: r.respuesta });
         q('#asCaso').style.display = '';
         pintarEstado({ hayLlave: true, gastoMes: r.gastoMes, tope: r.tope, quedanHoy: r.quedanHoy, topeDia: r.topeDia, aviso: r.aviso });
-        if (voz) { if (conversando) q('#asConvTxt').textContent = 'Airton está hablando… (toque Terminar para cortar)'; hablar(r.respuesta, luego); } else if (luego) luego();
+        if (voz) { if (conversando) q('#asConvTxt').textContent = 'Airton está hablando… (toque Terminar para cortar)'; hablar(r.respuesta, luego, r.vozInicio); } else if (luego) luego();
       }).catch(function (e) {
         espera.classList.remove('esperando'); espera.innerHTML = '<span class="error">' + esc(e.message) + '</span>';
         if (!voz) q('#asPregunta').value = pregunta;
@@ -4005,7 +4054,7 @@
       });
     };
     q('#asConversar').onclick = function () {
-      audioListo();
+      audioListo(); prepararAcuses();
       conversando = true; silencios = 0; q('#asConv').style.display = ''; q('#asConversar').style.display = 'none';
       if (!hist.length) { q('#asConvTxt').textContent = 'Airton saluda…'; hablar('Hola, soy Airton. Cuénteme qué está pasando con el equipo.', turno); } else turno();
     };
