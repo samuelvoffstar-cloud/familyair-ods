@@ -226,6 +226,30 @@
   .cal-celda.fuera { opacity: .45; }
   .cal-mini { display: block; width: 100%; text-align: left; border: none; border-left: 3px solid var(--c); background: var(--fondo, #f4f6f8); border-radius: 4px; padding: 1px 5px; font-size: 12px; font-weight: 400; color: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cal-mas { background: none; border: none; color: var(--primario); font-size: 12px; text-align: left; padding: 0 5px; cursor: pointer; }
+  /* Prospectos (18/11/2026) */
+  .pr-busca { grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.4fr) auto; }
+  .pr-embudo { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+  .pr-paso { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: var(--blanco, #fff); color: inherit; border: 1px solid var(--borde); border-top: 4px solid var(--c); border-radius: 10px; padding: 10px 12px; font-weight: 400; text-align: left; cursor: pointer; }
+  .pr-paso b { font-size: 22px; }
+  .pr-paso span { font-size: 13px; color: var(--gris); }
+  .pr-paso.activo { box-shadow: inset 0 0 0 2px var(--c); }
+  .pr-filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .pr-filtros input[type=search] { flex: 1 1 240px; }
+  .pr-lista { display: flex; flex-direction: column; gap: 10px; }
+  .pr-item { border: 1px solid var(--borde); border-left: 4px solid var(--c); border-radius: 10px; padding: 10px 12px; background: var(--blanco, #fff); }
+  .pr-cab { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .pr-cab b { display: block; overflow-wrap: anywhere; }
+  .pr-cab small { color: var(--gris); }
+  .pr-cab select { width: auto; max-width: 48%; }
+  .pr-datos, .pr-seg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 14px; margin-top: 6px; }
+  .pr-notas { white-space: pre-wrap; width: 100%; color: var(--texto, #222); background: var(--fondo, #f4f6f8); border-radius: 6px; padding: 6px 8px; }
+  .pr-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  @media (max-width: 720px) {
+    .pr-busca { grid-template-columns: 1fr; }
+    .pr-embudo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .pr-cab { flex-direction: column; }
+    .pr-cab select { max-width: none; width: 100%; }
+  }
   /* Calendario completo (17/11/2026): cuadrícula por horas, agenda y eventos propios */
   .cal-herr { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
   .cal-herr input[type=search] { flex: 1 1 220px; max-width: 340px; }
@@ -1075,6 +1099,7 @@
 
   var ICON = {
     correo: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2.4V17h16V7.4l-8 5.3zM5.2 7 12 11.5 18.8 7z"/></svg>',
+    prospectos: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 4.5A2.5 2.5 0 1 0 12 11.5 2.5 2.5 0 0 0 12 6.5z"/></svg>',
     calendario: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1h3zm-2 8v10h14V10zm2 2h4v4H7z"/></svg>',
     inicio: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg>',
     ordenes: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 5v2h8V7zm0 4v2h8v-2zm0 4v2h5v-2z"/></svg>',
@@ -1213,6 +1238,7 @@
     { id: 'cobro', t: 'Cobro y facturación', icono: 'cobro', permiso: 'cobrar', estado: 'LIQUIDADA' },
     { id: 'retornos', t: 'Retornos', icono: 'retorno', permiso: 'retorno' },
     { id: 'mercadeo', t: 'Mercadeo', icono: 'mercadeo', permiso: 'mercadeo', separador: true },
+    { id: 'prospectos', t: 'Prospectos', icono: 'prospectos', permiso: 'prospectos' },
     { id: 'informes', t: 'Informes técnicos', icono: 'informes', permiso: 'informes' },
     { id: 'clientes', t: 'Clientes', icono: 'clientes', permiso: 'panel' },
     { id: 'finanzas', t: 'Resumen financiero', icono: 'finanzas', permiso: 'finanzas', separador: true }
@@ -1536,7 +1562,7 @@
     marcarMenu(AD.seccion);
     window.scrollTo(0, 0);
     var mapa = { inicio: vistaInicio, ordenes: vistaOrdenes, revision: vistaRevision, liquidacion: vistaLiquidacion, cobro: vistaCobro,
-      retornos: vistaRetornos, calendario: vistaCalendario, correo: vistaCorreo, mercadeo: vistaMercadeo, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
+      retornos: vistaRetornos, calendario: vistaCalendario, correo: vistaCorreo, mercadeo: vistaMercadeo, prospectos: vistaProspectos, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
     if (p[0] === 'orden') return vistaDetalle(decodeURIComponent(p[1]));
     if (p[0] === 'cliente') return vistaCliente(decodeURIComponent(p[1]));
     if (p[0] === 'correo' && p[1]) return vistaCorreo(decodeURIComponent(p[1]));
@@ -2778,14 +2804,15 @@
   function leerSede(raiz) { var s = {}; $$('[data-sd]', raiz).forEach(function (i) { s[i.getAttribute('data-sd')] = i.value.trim(); }); return s; }
 
   /** nit: viene de la búsqueda de la orden; se busca de una vez en la base y en Siigo. */
-  function modalClienteNuevo(listo, nit) {
+  function modalClienteNuevo(listo, nit, pre) {
+    pre = pre || {};
     var m = modal('Cliente nuevo',
       '<p class="gris">Queda guardado en la base maestra (CLIENTES, SEDES y EQUIPOS). Si el cliente ya está creado en Siigo, escriba el NIT o la cédula y toque <b>Traer de Siigo</b>.</p>' +
       '<div class="fila"><div><label>NIT o CC *</label><input id="cnNit" inputmode="numeric" value="' + esc(nit || '') + '"></div><div style="align-self:end"><button class="sec" id="cnSiigo">Traer de Siigo</button></div></div><p id="cnSiigoMsg"></p>' +
-      '<div class="fila"><div style="grid-column:span 2"><label>Razón social o nombre *</label><input id="cnNombre"></div><div><label>DV</label><input id="cnDv" inputmode="numeric" maxlength="1"></div>' +
+      '<div class="fila"><div style="grid-column:span 2"><label>Razón social o nombre *</label><input id="cnNombre" value="' + esc(pre.nombre || '') + '"></div><div><label>DV</label><input id="cnDv" inputmode="numeric" maxlength="1"></div>' +
       '<div><label>Tipo de documento</label><select id="cnTipoDoc"><option>NIT</option><option>CC</option><option>CE</option><option>PASAPORTE</option></select></div><div><label>Tipo de cliente</label><select id="cnTipoCli"><option>EMPRESA</option><option>PERSONA</option></select></div>' +
-      '<div><label>Teléfono</label><input id="cnTel" inputmode="tel"></div><div><label>Correo</label><input id="cnEmail" type="email"></div></div>' +
-      '<h3>Sede</h3><div id="cnSede">' + camposSede() + '</div>' +
+      '<div><label>Teléfono</label><input id="cnTel" inputmode="tel" value="' + esc(pre.telefono || '') + '"></div><div><label>Correo</label><input id="cnEmail" type="email" value="' + esc(pre.email || '') + '"></div></div>' +
+      '<h3>Sede</h3><div id="cnSede">' + camposSede(pre.sede) + '</div>' +
       '<h3>Equipos <button class="link" id="cnMasEq">+ Agregar equipo</button></h3><div id="cnEquipos"></div>' +
       '<div class="tarjeta" id="cnSiigoBox" style="padding:10px 14px;margin-top:12px"><label class="chk"><input type="checkbox" id="cnCrearSiigo" checked> <b>Crear también en Siigo</b></label>' +
         '<div id="cnSiigoCampos"><p class="gris" style="margin:4px 0">Para la factura electrónica Siigo pide el <b>correo</b> (arriba) y la responsabilidad fiscal. Si algo falta, el cliente queda en la app y se crea en Siigo al facturar.</p>' +
@@ -3626,6 +3653,100 @@
     document.body.appendChild(f);
     f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
     setTimeout(function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { aviso('No se pudo imprimir: ' + e.message, 5000, 'error'); } setTimeout(function () { f.remove(); }, 2000); }, 200);
+  }
+
+  // ================= PROSPECTOS (pedido de Samuel, 18/11/2026: la búsqueda de Google Maps desde la app) =================
+  // Busca negocios por sector y zona (máx. 30 búsquedas al día), sin los clientes actuales; seguimiento de cada uno y
+  // "Crear cliente" cuando acepta. La lista vive en la hoja PROSPECTOS.
+  var COLOR_PROSP = { 'Nuevo': '#6b7785', 'Contactado': '#1677d6', 'Respondió': '#c99700', 'Diagnóstico agendado': '#e8833a', 'Aprobado': '#1e8e4f', 'Descartado': '#a0a8b2' };
+  function vistaProspectos() {
+    AD.prosp = AD.prosp || { estado: 'activos', sector: '', buscar: '', ultSector: 0, ultZona: '' };
+    var f = AD.prosp;
+    var cont = pagina('Prospectos');
+    leer('adminProspectos', [], function (r) {
+      AD.prospDatos = r;
+      var cuenta = {}; r.filas.forEach(function (x) { cuenta[x.estado] = (cuenta[x.estado] || 0) + 1; });
+      cont.innerHTML =
+        '<div class="tarjeta"><h2>Buscar en Google Maps</h2>' +
+        (r.hayLlave ? '' : '<p class="error">Falta la llave de Google Maps: en la hoja, menú Family Air → Llave de Google Maps.</p>') +
+        '<div class="fila pr-busca"><div><label for="prSector">Sector</label><select id="prSector">' + r.sectores.map(function (n, i) { return '<option value="' + i + '"' + (i === Number(f.ultSector) ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>' +
+        '<div><label for="prZona">Zona (barrio o municipio)</label><input id="prZona" list="prZonas" value="' + esc(f.ultZona) + '" placeholder="El Poblado, Laureles, Envigado…"><datalist id="prZonas">' +
+          ['El Poblado', 'Laureles', 'Estadio', 'Belén', 'Envigado', 'Sabaneta', 'Itagüí', 'Bello', 'Centro de Medellín', 'Robledo', 'Buenos Aires', 'La América', 'Castilla', 'Rionegro'].map(function (z) { return '<option value="' + z + '">'; }).join('') + '</datalist></div>' +
+        '<div style="align-self:end"><button id="prBuscar"' + (r.hayLlave && r.quedan ? '' : ' disabled') + '>Buscar</button></div></div>' +
+        '<p class="gris" id="prMsg">Quedan <b>' + r.quedan + '</b> de ' + r.tope + ' búsquedas hoy. Cada búsqueda trae hasta 20 negocios; repetir la misma trae los 20 siguientes. Los que ya son clientes no se agregan.</p></div>' +
+        '<div class="pr-embudo">' + r.estados.map(function (e) { return '<button class="pr-paso' + (f.estado === e ? ' activo' : '') + '" data-est="' + esc(e) + '" style="--c:' + COLOR_PROSP[e] + '"><b>' + (cuenta[e] || 0) + '</b><span>' + esc(e) + '</span></button>'; }).join('') + '</div>' +
+        '<div class="tarjeta"><div class="pr-filtros"><input id="prFiltro" type="search" placeholder="Buscar por nombre, barrio, teléfono o notas" value="' + esc(f.buscar) + '" aria-label="Buscar prospecto">' +
+        '<select id="prEstado" style="width:auto"><option value="activos">Por trabajar (sin descartados)</option><option value="">Todos</option>' + r.estados.map(function (e) { return '<option' + (f.estado === e ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select>' +
+        '<select id="prSecF" style="width:auto"><option value="">Todos los sectores</option>' + r.sectores.map(function (n) { return '<option' + (f.sector === n ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></div>' +
+        '<div id="prLista"></div></div>';
+      if (f.estado === 'activos') $('prEstado').value = 'activos'; else if (!f.estado) $('prEstado').value = '';
+      pintarProspectos();
+      $('prFiltro').oninput = function () { f.buscar = this.value; pintarProspectos(); };
+      $('prEstado').onchange = function () { f.estado = this.value; vistaProspectos(); };
+      $('prSecF').onchange = function () { f.sector = this.value; pintarProspectos(); };
+      $$('.pr-paso', cont).forEach(function (b) { b.onclick = function () { f.estado = f.estado === b.getAttribute('data-est') ? 'activos' : b.getAttribute('data-est'); vistaProspectos(); }; });
+      $('prBuscar').onclick = function () {
+        var zona = $('prZona').value.trim();
+        if (!zona) return marcarError($('prZona'), 'Escriba la zona.');
+        f.ultSector = $('prSector').value; f.ultZona = zona;
+        $('prMsg').innerHTML = 'Buscando en Google Maps…';
+        api('adminBuscarProspectos', { sector: Number(f.ultSector), zona: zona }).then(function (x) {
+          aviso('Google encontró ' + x.encontrados + ': ' + x.nuevos + ' nuevos' + (x.clientes ? ', ' + x.clientes + ' ya son clientes' : '') + (x.repetidos ? ', ' + x.repetidos + ' ya estaban' : '') + (x.cerrados ? ', ' + x.cerrados + ' cerrados' : '') + '. ' + (x.mas ? 'Repita la búsqueda para traer más.' : 'No hay más resultados.'), 7000, 'exito');
+          f.estado = 'Nuevo'; VISTAS_T0('adminProspectos'); vistaProspectos();
+        }).catch(function (e) { $('prMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; });
+      };
+    }).catch(function (e) { errorEn(cont, e); });
+  }
+  function pintarProspectos() {
+    var r = AD.prospDatos, f = AD.prosp, box = $('prLista'); if (!r || !box) return;
+    var q = plano(f.buscar || '').trim();
+    var l = r.filas.filter(function (x) {
+      if (f.estado === 'activos' ? x.estado === 'Descartado' : (f.estado && x.estado !== f.estado)) return false;
+      if (f.sector && x.sector !== f.sector) return false;
+      return !q || plano([x.nombre, x.barrio, x.zona, x.direccion, x.telefono, x.notas, x.correo].join(' ')).indexOf(q) >= 0;
+    }).sort(function (a, b) { return (b.encontrado + (b.telefono ? '1' : '0') + ('00' + (b.resenas || 0)).slice(-5)).localeCompare(a.encontrado + (a.telefono ? '1' : '0') + ('00' + (a.resenas || 0)).slice(-5)); });
+    if (!l.length) { box.innerHTML = '<p class="gris">' + (r.filas.length ? 'Ningún prospecto coincide con el filtro.' : 'Todavía no hay prospectos: haga la primera búsqueda arriba.') + '</p>'; return; }
+    box.innerHTML = '<p class="gris">' + l.length + ' prospecto' + (l.length > 1 ? 's' : '') + '</p><div class="pr-lista">' + l.map(function (x) {
+      return '<div class="pr-item" data-pr="' + esc(x.id) + '" style="--c:' + COLOR_PROSP[x.estado] + '">' +
+        '<div class="pr-cab"><div><b>' + esc(x.nombre) + '</b><small>' + esc([x.sector, x.barrio || x.zona].filter(Boolean).join(' · ')) + (x.calificacion ? ' · ★ ' + esc(String(x.calificacion).replace('.', ',')) + ' (' + x.resenas + ')' : '') + '</small></div>' +
+        '<select data-a="estado" aria-label="Estado">' + r.estados.map(function (e) { return '<option' + (e === x.estado ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="pr-datos"><span>' + esc(x.direccion) + '</span>' +
+        (x.telefono ? '<a href="tel:' + esc(telLimpio(x.telefono)) + '">' + esc(x.telefono) + '</a>' + (/^3\d{9}$/.test(telLimpio(x.telefono).replace(/^57/, '')) ? enlaceWhatsapp(x.telefono, '', 'WhatsApp') : '') : '<span class="gris">Sin teléfono</span>') +
+        (x.web ? '<a href="' + esc(x.web) + '" target="_blank" rel="noopener">Sitio web</a>' : '') + (x.mapa ? '<a href="' + esc(x.mapa) + '" target="_blank" rel="noopener">Google Maps</a>' : '') + '</div>' +
+        '<div class="pr-seg">' + (x.fechaContacto ? '<span>Contactado ' + esc(x.fechaContacto) + (x.canal ? ' · ' + esc(x.canal) : '') + '</span>' : '') + (x.correo ? '<span>' + esc(x.correo) + '</span>' : '') +
+        (x.notas ? '<span class="pr-notas">' + esc(x.notas) + '</span>' : '') + '</div>' +
+        '<div class="pr-acc"><button class="sec" data-a="seguir">Anotar contacto</button>' +
+        (x.idCliente ? '<a class="btn sec" href="#cliente/' + encodeURIComponent(x.idCliente) + '">Ver cliente</a>' : puede('clientes') ? '<button class="sec" data-a="cliente">Crear cliente</button>' : '') +
+        (x.estado !== 'Descartado' ? '<button class="link link-peligro" data-a="descartar">Descartar</button>' : '') + '</div></div>';
+    }).join('') + '</div>';
+    $$('.pr-item', box).forEach(function (it) {
+      var id = it.getAttribute('data-pr'), x = r.filas.filter(function (y) { return y.id === id; })[0];
+      var guardar = function (c, msg) {
+        return api('adminProspecto', id, c).then(function () { Object.keys(c).forEach(function (k) { x[k] = c[k]; }); if (c.estado && c.estado !== 'Nuevo' && !x.fechaContacto) x.fechaContacto = hoyISO(0); VISTAS_T0('adminProspectos'); if (msg) aviso(msg, 2500, 'exito'); vistaProspectos(); }).catch(function (e) { aviso(e.message, 6000, 'error'); });
+      };
+      it.querySelector('[data-a="estado"]').onchange = function () { guardar({ estado: this.value }, x.nombre + ': ' + this.value + '.'); };
+      var d = it.querySelector('[data-a="descartar"]'); if (d) d.onclick = function () { guardar({ estado: 'Descartado' }, x.nombre + ' descartado.'); };
+      it.querySelector('[data-a="seguir"]').onclick = function () { modalSeguirProspecto(x, guardar); };
+      var cb = it.querySelector('[data-a="cliente"]');
+      if (cb) cb.onclick = function () {
+        modalClienteNuevo(function (cli) { guardar({ idCliente: cli.id, estado: x.estado === 'Aprobado' ? 'Aprobado' : 'Diagnóstico agendado' }, 'Cliente creado y enlazado al prospecto.').then(function () { ir('cliente/' + cli.id); }); }, '',
+          { nombre: String(x.nombre).toUpperCase(), telefono: x.telefono, email: x.correo, sede: { nombre: 'Principal', direccion: String(x.direccion).split(',')[0], barrio: x.barrio, ciudad: /envigado|sabaneta|itag|bello|rionegro|estrella|caldas|copacabana/i.test(x.direccion + ' ' + x.zona) ? (x.zona || 'Medellín') : 'Medellín', telefono: x.telefono } });
+      };
+    });
+  }
+  function modalSeguirProspecto(x, guardar) {
+    var r = AD.prospDatos;
+    var m = modal(x.nombre, '<div class="fila dos"><div><label for="psEstado">Estado</label><select id="psEstado">' + r.estados.map(function (e) { return '<option' + (e === (x.estado === 'Nuevo' ? 'Contactado' : x.estado) ? ' selected' : '') + '>' + esc(e) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="psFecha">Fecha de contacto</label><input type="date" id="psFecha" value="' + esc(x.fechaContacto || hoyISO(0)) + '"></div>' +
+      '<div><label for="psCanal">Canal</label><select id="psCanal"><option value=""></option>' + r.canales.map(function (c) { return '<option' + (c === x.canal ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
+      '<div><label for="psCorreo">Correo</label><input id="psCorreo" type="email" value="' + esc(x.correo) + '" placeholder="Se pide al llamar o se busca en el sitio web"></div></div>' +
+      '<label for="psNotas">Notas</label><textarea id="psNotas" rows="4" placeholder="Con quién habló, qué respondió, cuándo volver a llamar…">' + esc(x.notas) + '</textarea>' +
+      '<div class="acciones der"><button id="psOk">Guardar</button></div>', 560);
+    m.querySelector('#psOk').onclick = function () {
+      var c = { estado: m.querySelector('#psEstado').value, fechaContacto: m.querySelector('#psFecha').value, canal: m.querySelector('#psCanal').value, correo: m.querySelector('#psCorreo').value.trim(), notas: m.querySelector('#psNotas').value.trim() };
+      if (c.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.correo)) return marcarError(m.querySelector('#psCorreo'), 'Revise el correo.');
+      guardar(c, 'Seguimiento guardado.').then(function () { m.remove(); });
+    };
   }
 
   // ================= CORREO (pedido de Samuel, 17/11/2026: "todo lo que se puede hacer en Gmail") =================
