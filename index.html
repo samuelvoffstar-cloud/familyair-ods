@@ -226,6 +226,35 @@
   .cal-celda.fuera { opacity: .45; }
   .cal-mini { display: block; width: 100%; text-align: left; border: none; border-left: 3px solid var(--c); background: var(--fondo, #f4f6f8); border-radius: 4px; padding: 1px 5px; font-size: 12px; font-weight: 400; color: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cal-mas { background: none; border: none; color: var(--primario); font-size: 12px; text-align: left; padding: 0 5px; cursor: pointer; }
+  /* Asesor técnico (18/11/2026) */
+  .as-estado { font-size: 14px; margin-bottom: 8px; }
+  .as-ctx { margin: 0 0 8px; font-size: 14px; }
+  .as-chat { display: flex; flex-direction: column; gap: 10px; max-height: 58vh; overflow-y: auto; padding: 4px 2px 8px; }
+  .as-msg { border-radius: 12px; padding: 10px 14px; max-width: 92%; line-height: 1.45; overflow-wrap: anywhere; }
+  .as-msg p { margin: 0 0 6px; } .as-msg ul { margin: 4px 0 8px 18px; padding: 0; } .as-msg li { margin: 2px 0; }
+  .as-msg .as-tit { display: block; margin: 8px 0 4px; }
+  .as-msg code { background: rgba(0,0,0,.06); border-radius: 4px; padding: 0 4px; }
+  .as-msg img { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; margin-bottom: 6px; }
+  .as-msg small { display: block; margin-top: 4px; font-size: 12px; }
+  .as-msg.yo { align-self: flex-end; background: var(--primario-claro); }
+  .as-msg.asesor { align-self: flex-start; background: var(--fondo, #f4f6f8); border: 1px solid var(--borde); }
+  .as-msg.esperando { opacity: .8; }
+  .as-foto { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .as-foto img { max-height: 80px; border-radius: 6px; }
+  .as-entrada textarea { width: 100%; }
+  .as-botones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .as-adj { cursor: pointer; display: inline-flex; align-items: center; border: 1px solid var(--primario); color: var(--primario); background: var(--blanco, #fff); border-radius: 8px; padding: 8px 16px; font-weight: 600; margin: 0; }
+  .as-conv { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--primario-claro); border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-weight: 600; }
+  .as-conv button { margin-left: auto; }
+  .as-onda { width: 14px; height: 14px; border-radius: 50%; background: #d50000; animation: asLatido 1.2s ease-in-out infinite; }
+  @keyframes asLatido { 0%, 100% { transform: scale(.7); opacity: .6; } 50% { transform: scale(1.15); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .as-onda { animation: none; } }
+  .as-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+  .as-voz { margin-right: 4px; }
+  #asDictar.activo { border-color: #d50000; color: #d50000; }
+  .as-botones { flex-wrap: wrap; }
+  .as-nombre { display: block; font-size: 13px; color: var(--primario); margin-bottom: 4px; }
+  .as-adj:hover { background: var(--primario-claro); }
   /* Prospectos (18/11/2026) */
   .pr-busca { grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.4fr) auto; }
   .pr-embudo { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
@@ -1099,6 +1128,7 @@
 
   var ICON = {
     correo: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2.4V17h16V7.4l-8 5.3zM5.2 7 12 11.5 18.8 7z"/></svg>',
+    asesor: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm4 6.5a1.5 1.5 0 1 0 0 .01zm4 0a1.5 1.5 0 1 0 0 .01zm4 0a1.5 1.5 0 1 0 0 .01z"/></svg>',
     prospectos: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 4.5A2.5 2.5 0 1 0 12 11.5 2.5 2.5 0 0 0 12 6.5z"/></svg>',
     calendario: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1h3zm-2 8v10h14V10zm2 2h4v4H7z"/></svg>',
     inicio: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg>',
@@ -1252,6 +1282,7 @@
     { id: 'retornos', t: 'Retornos', icono: 'retorno', permiso: 'retorno' },
     { id: 'mercadeo', t: 'Mercadeo', icono: 'mercadeo', permiso: 'mercadeo', separador: true },
     { id: 'prospectos', t: 'Prospectos', icono: 'prospectos', permiso: 'prospectos' },
+    { id: 'asesor', t: 'Airton', icono: 'asesor', permiso: 'asesor' },
     { id: 'informes', t: 'Informes técnicos', icono: 'informes', permiso: 'informes' },
     { id: 'clientes', t: 'Clientes', icono: 'clientes', permiso: 'panel' },
     { id: 'finanzas', t: 'Resumen financiero', icono: 'finanzas', permiso: 'finanzas', separador: true }
@@ -1575,7 +1606,7 @@
     marcarMenu(AD.seccion);
     window.scrollTo(0, 0);
     var mapa = { inicio: vistaInicio, ordenes: vistaOrdenes, revision: vistaRevision, liquidacion: vistaLiquidacion, cobro: vistaCobro,
-      retornos: vistaRetornos, calendario: vistaCalendario, correo: vistaCorreo, mercadeo: vistaMercadeo, prospectos: vistaProspectos, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
+      retornos: vistaRetornos, calendario: vistaCalendario, correo: vistaCorreo, mercadeo: vistaMercadeo, prospectos: vistaProspectos, asesor: vistaAsesor, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
     if (p[0] === 'orden') return vistaDetalle(decodeURIComponent(p[1]));
     if (p[0] === 'cliente') return vistaCliente(decodeURIComponent(p[1]));
     if (p[0] === 'correo' && p[1]) return vistaCorreo(decodeURIComponent(p[1]));
@@ -1774,6 +1805,7 @@
     if ((d.estado === 'EN_CURSO' && puede('editar')) || (d.estado === 'PROGRAMADA' && puedeCerrarOficina(d))) b('aPausar', 'Pausar', 'sec');
     if (d.estado === 'EN_PAUSA' && puede('editar')) b('aReanudar', 'Reanudar', 'ok');
     if (d.estado !== 'ANULADA' && puede('editar')) b('aEditar', 'Editar', 'sec');
+    if (puede('asesor')) b('aAsesor', 'Preguntarle a Airton', 'sec');
     if (['COMPLETADA', 'ANULADA'].indexOf(d.estado) < 0 && puede('anular') && !d.siigoId) b('aAnular', 'Anular', 'peligro');
     if (d.estado === 'ANULADA' && puede('anular')) b('aReactivar', 'Reactivar', 'sec');
     if (puede('informes') && ['PROGRAMADA', 'EN_CURSO', 'ANULADA'].indexOf(d.estado) < 0) b('aInforme', 'Crear informe técnico', 'sec');
@@ -1945,6 +1977,7 @@
     });
     accion('aRetorno', function () { modalRetorno(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aEditar', function () { formOrden(d.id, d); });
+    accion('aAsesor', function () { modalAsesor(d); });
     accion('aCerrarOf', function () { modalCerrarOficina(d, function (nd) { pintarDetalle(cont, nd); }); });
     accion('aAnular', function () { pedirTexto('Anular ' + d.id, 'Motivo de la anulación. El número queda anulado y no se reutiliza.', function (t, m) { return api('adminAnular', d.id, t).then(function (nd) { m.remove(); aviso('Orden anulada.', 0, 'exito'); pintarDetalle(cont, nd); }); }); });
     accion('aReactivar', function () { var bt = this; confirmar('La orden vuelve a Programada.', 'Reactivar').then(function (si) { if (si) ejecutar(bt, api('adminReactivar', d.id), 'Orden reactivada.'); }); });
@@ -3762,6 +3795,157 @@
     };
   }
 
+  // ================= ASESOR TÉCNICO CON IA (pedido de Samuel, 18/11/2026) =================
+  // Claude Opus 5.5 como ingeniero de climatización. Solo responde; la conversación vive en esta pantalla (no se guarda).
+  // Presupuesto: USD 10 al mes y 10 consultas al día por persona, controlados en el servidor.
+  function textoAsesor(t) {
+    // Formato básico de la respuesta (títulos, negrita, listas) sobre texto ya escapado.
+    var h = esc(t);
+    h = h.replace(/^#{1,4}\s*(.+)$/gm, '<b class="as-tit">$1</b>').replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    var lineas = h.split('\n'), out = [], lista = null;
+    lineas.forEach(function (l) {
+      var m = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(l);
+      if (m) { if (!lista) { lista = []; } lista.push('<li>' + m[1] + '</li>'); return; }
+      if (lista) { out.push('<ul>' + lista.join('') + '</ul>'); lista = null; }
+      out.push(l ? '<p>' + l + '</p>' : '');
+    });
+    if (lista) out.push('<ul>' + lista.join('') + '</ul>');
+    return out.join('');
+  }
+  // Voz: reconocimiento y lectura en voz alta del navegador (sin costo). Chrome y Safari; si no hay, se ocultan los botones.
+  var RECONOCER = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  function textoParaHablar(t) { return String(t || '').replace(/[#*`_>|]/g, '').replace(/\n+/g, '. ').replace(/\s+/g, ' ').replace(/\.\s*\./g, '.').trim(); }
+  function vozEspanol() {
+    var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+    return vs.filter(function (v) { return /^es[-_](CO|MX|US|419)/i.test(v.lang); })[0] || vs.filter(function (v) { return /^es/i.test(v.lang); })[0] || null;
+  }
+  function hablar(texto, alTerminar) {
+    if (!window.speechSynthesis) { if (alTerminar) alTerminar(); return; }
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(textoParaHablar(texto));
+    var v = vozEspanol(); if (v) u.voice = v; u.lang = v ? v.lang : 'es-CO'; u.rate = 1.02;
+    u.onend = u.onerror = function () { if (alTerminar) alTerminar(); };
+    speechSynthesis.speak(u);
+  }
+  function chatAsesor(raiz, orden) {
+    var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false;
+    raiz.innerHTML = '<div class="as-estado gris" id="asEstado">Cargando…</div>' +
+      (orden ? '<p class="gris as-ctx">Airton ya conoce los equipos, el tipo de servicio y la falla de <b>' + esc(orden.id) + '</b> (sin datos personales del cliente).</p>' : '') +
+      '<div class="as-chat" id="asChat"><p class="gris as-vacio">Pregúntele a Airton, el ingeniero de Family Air: fallas, códigos de error, presiones, procedimientos, repuestos. Puede escribir, dictar con 🎤 o conversar por voz, y adjuntar fotos de la placa, la tarjeta o el código en pantalla.</p></div>' +
+      '<div class="as-foto" id="asFoto" style="display:none"></div>' +
+      '<div class="as-conv" id="asConv" style="display:none"><span class="as-onda"></span><span id="asConvTxt">Escuchando…</span><button class="sec" id="asConvFin">Terminar conversación</button></div>' +
+      '<div class="as-entrada"><textarea id="asPregunta" rows="3" placeholder="Ej.: Mini split LG de 12.000 BTU R-410A, la condensadora arranca y se apaga a los 3 minutos. ¿Qué reviso?"></textarea>' +
+      '<div class="as-botones">' +
+        (RECONOCER ? '<button class="sec" id="asDictar" title="Dictar la pregunta">🎤 Dictar</button><button class="sec" id="asConversar" title="Hablar con Airton sin usar las manos">🎧 Conversar</button>' : '') +
+        '<label class="as-adj">📷 Foto<input type="file" id="asArchivo" accept="image/*" hidden></label><button id="asEnviar">Preguntar</button></div>' +
+      (RECONOCER ? '' : '<p class="gris" style="margin:6px 0 0;font-size:13px">Este navegador no permite dictar. Para hablar con Airton use Chrome o Safari.</p>') + '</div>';
+    var q = function (sel) { return raiz.querySelector(sel); };
+    var ultimoEstado = null;
+    var pintarEstado = function (e) {
+      ultimoEstado = e;
+      q('#asEstado').innerHTML = !e.hayLlave ? '<span class="error">Falta la llave de Claude: en la hoja, menú Family Air → Llave de Claude (Airton).</span>' :
+        'Este mes: <b>USD ' + Number(e.gastoMes).toFixed(2).replace('.', ',') + '</b> de ' + e.tope + ' · le quedan <b>' + e.quedanHoy + '</b> de ' + (e.topeDia || 20) + ' consultas hoy' +
+        (e.aviso ? ' · <span class="error">ya se usó más del 80 % del presupuesto del mes</span>' : '');
+      q('#asEnviar').disabled = !e.hayLlave || !e.quedanHoy || e.gastoMes + 0.15 > e.tope;
+    };
+    api('adminAsesorEstado').then(pintarEstado).catch(function (e) { q('#asEstado').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; });
+    var agregar = function (rol, html, clase) {
+      var v = q('.as-vacio'); if (v) v.remove();
+      var d = document.createElement('div'); d.className = 'as-msg ' + rol + (clase ? ' ' + clase : ''); d.innerHTML = html;
+      q('#asChat').appendChild(d); d.scrollIntoView({ block: 'nearest' }); return d;
+    };
+    q('#asArchivo').onchange = function () {
+      var f = this.files[0]; this.value = ''; if (!f) return;
+      reducirImagen(f, 1568, 0.8).then(function (u) {
+        foto = u; q('#asFoto').style.display = '';
+        q('#asFoto').innerHTML = '<img src="' + u + '" alt="Foto adjunta"><span class="gris">Se envía con la próxima pregunta' + (conversando ? ' (dígala en voz alta)' : '') + '.</span><button class="link link-peligro" id="asQuitarFoto">Quitar</button>';
+        q('#asQuitarFoto').onclick = function () { foto = null; q('#asFoto').style.display = 'none'; };
+      }).catch(function () { aviso('No se pudo leer la foto.', 4000, 'error'); });
+    };
+    // Envía una pregunta; con voz, la respuesta es corta y se lee en voz alta.
+    var enviar = function (pregunta, voz, luego) {
+      if (!pregunta && !foto) { if (!voz) marcarError(q('#asPregunta'), 'Escriba la pregunta.'); return; }
+      var conFoto = foto;
+      agregar('yo', (conFoto ? '<img src="' + conFoto + '" alt="Foto enviada">' : '') + (voz ? '<span class="as-voz">🎤</span>' : '') + textoAsesor(pregunta || '(foto)'));
+      var espera = agregar('asesor', '<span class="gris">Airton está pensando…</span>', 'esperando');
+      q('#asPregunta').value = ''; foto = null; q('#asFoto').style.display = 'none';
+      q('#asEnviar').disabled = true;
+      if (conversando) q('#asConvTxt').textContent = 'Airton está pensando…';
+      api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), foto: conFoto, voz: !!voz }).then(function (r) {
+        if (cerrado) return;
+        espera.classList.remove('esperando');
+        espera.innerHTML = '<b class="as-nombre">Airton</b>' + textoAsesor(r.respuesta) + '<div class="as-pie"><button class="link" data-oir>🔊 Escuchar</button><small class="gris">Costo USD ' + String(r.costo).replace('.', ',') + '</small></div>';
+        espera.querySelector('[data-oir]').onclick = function () { hablar(r.respuesta); };
+        hist.push({ rol: 'yo', texto: pregunta || '(foto)' }, { rol: 'asesor', texto: r.respuesta });
+        pintarEstado({ hayLlave: true, gastoMes: r.gastoMes, tope: r.tope, quedanHoy: r.quedanHoy, topeDia: r.topeDia, aviso: r.aviso });
+        if (voz) { if (conversando) q('#asConvTxt').textContent = 'Airton está hablando… (toque Terminar para cortar)'; hablar(r.respuesta, luego); } else if (luego) luego();
+      }).catch(function (e) {
+        espera.classList.remove('esperando'); espera.innerHTML = '<span class="error">' + esc(e.message) + '</span>';
+        if (!voz) q('#asPregunta').value = pregunta;
+        q('#asEnviar').disabled = false;
+        if (voz) { hablar(e.message); terminarConversacion(); }
+      });
+    };
+    q('#asEnviar').onclick = function () { enviar(q('#asPregunta').value.trim(), false); };
+    q('#asPregunta').addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) q('#asEnviar').click(); });
+    if (!RECONOCER) return;
+    // Escucha una frase y entrega el texto (con lo provisional en el cuadro mientras habla).
+    var escuchar = function (alTerminar) {
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      var rec = new RECONOCER(); oyendo = rec;
+      rec.lang = 'es-CO'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
+      var final = '';
+      rec.onresult = function (ev) {
+        var prov = '';
+        for (var i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) final += ev.results[i][0].transcript; else prov += ev.results[i][0].transcript; }
+        q('#asPregunta').value = (final + ' ' + prov).trim();
+      };
+      rec.onerror = function (ev) { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture') { sinMicro = true; aviso('Permita el micrófono para hablar con Airton.', 6000, 'error'); } };
+      rec.onend = function () { oyendo = null; alTerminar((final || q('#asPregunta').value).trim()); };
+      try { rec.start(); } catch (e) { oyendo = null; alTerminar(''); }
+    };
+    q('#asDictar').onclick = function () {
+      var b = this; if (oyendo) { oyendo.stop(); return; }
+      b.classList.add('activo'); b.textContent = '⏹ Detener';
+      escuchar(function () { b.classList.remove('activo'); b.textContent = '🎤 Dictar'; q('#asPregunta').focus(); });
+    };
+    // Conversación: escucha → Airton responde en voz → vuelve a escuchar, hasta que la persona termine.
+    var terminarConversacion = function () {
+      conversando = false; if (oyendo) try { oyendo.abort(); } catch (e) {}
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      q('#asConv').style.display = 'none'; q('#asConversar').style.display = '';
+    };
+    var turno = function () {
+      if (!conversando || cerrado) return;
+      q('#asConvTxt').textContent = 'Escuchando… hable cuando quiera';
+      escuchar(function (texto) {
+        if (!conversando || cerrado) return;
+        if (sinMicro) { sinMicro = false; return terminarConversacion(); }
+        // Silencio: vuelve a escuchar; a la tercera vez seguida, termina para no dejar el micrófono abierto.
+        if (!texto && !foto) { if (++silencios >= 3) { hablar('No le escuché. Toque Conversar cuando me necesite.'); return terminarConversacion(); } return turno(); }
+        silencios = 0;
+        if (/^(gracias|listo|chao|adi[oó]s)[\s,.!]*(airton)?[.!]?$/i.test(texto) || /\b(terminar|fin de la) conversaci[oó]n\b/i.test(texto)) { q('#asPregunta').value = ''; hablar('Con gusto. Aquí estoy cuando me necesite.'); return terminarConversacion(); }
+        enviar(texto, true, turno);
+      });
+    };
+    q('#asConversar').onclick = function () {
+      conversando = true; silencios = 0; q('#asConv').style.display = ''; q('#asConversar').style.display = 'none';
+      if (!hist.length) { q('#asConvTxt').textContent = 'Airton saluda…'; hablar('Hola, soy Airton. Cuénteme qué está pasando con el equipo.', turno); } else turno();
+    };
+    q('#asConvFin').onclick = terminarConversacion;
+    // Al salir de la pantalla o cerrar la ventana, se apaga el micrófono y la voz.
+    var vigilar = setInterval(function () { if (!document.body.contains(raiz)) { cerrado = true; terminarConversacion(); clearInterval(vigilar); } }, 1000);
+  }
+  function vistaAsesor() {
+    var cont = pagina('Airton · Ingeniero de climatización');
+    cont.innerHTML = '<div class="tarjeta" id="asRaiz"></div>';
+    chatAsesor($('asRaiz'), null);
+  }
+  function modalAsesor(d) {
+    var m = modal('Airton · Ingeniero de climatización · ' + d.id, '<div id="asRaizM"></div>', 760);
+    chatAsesor(m.querySelector('#asRaizM'), d);
+  }
+
   // ================= CORREO (pedido de Samuel, 17/11/2026: "todo lo que se puede hacer en Gmail") =================
   // Bandeja de familyairmercadeo@gmail.com para Erika, Lucas, Adriana y Samuel. Gmail no deja abrirse dentro de otra página:
   // esto es el correo por la API de Gmail. El HTML de cada correo va en un recuadro aislado que no ejecuta código.
@@ -4926,6 +5110,8 @@
       (d.tipoOrden === 'SIN_COBRO' ? '<p><b>Servicio sin cobro</b></p>' : '') +
       (d.falla ? '<p><b>Falla según el cliente:</b> ' + esc(d.falla) + '</p>' : '') +
       (d.solicitud ? '<p><b>Indicaciones:</b> ' + esc(d.solicitud) + '</p>' : '') +
+      // Airton, el ingeniero de climatización con IA (pedido de Samuel, 18/11/2026): por escrito, por voz y con fotos.
+      (SES.permisos && SES.permisos.asesor ? '<button class="sec" id="tAirton" style="width:100%;margin:6px 0 10px">🎧 Preguntarle a Airton</button>' : '') +
       (d.items.length ? '<p><b>A realizar:</b></p><ul style="margin-top:0">' + d.items.map(function (i) { return '<li>' + esc(i.desc) + (i.cant > 1 ? ' × ' + esc(i.cant) : '') + '</li>'; }).join('') + '</ul>' : '') +
       (d.historial && d.historial.length ? '<details><summary>Historial de la sede (' + d.historial.length + ')</summary>' + d.historial.map(function (h) {
         return '<p class="gris">' + esc(h.fecha) + ' · ' + esc(h.numero) + ' · ' + esc(h.tecnico) + '<br>' + esc(h.descripcion) + '</p>';
@@ -4971,6 +5157,7 @@
         '<div class="acciones"><button id="oCerrar" class="btn-grande ok">Completar servicio</button></div><p id="oMsg"></p></div>' : '');
 
     $('oVolver').onclick = cargarMisOrdenes;
+    if ($('tAirton')) $('tAirton').onclick = function () { if (!navigator.onLine) return aviso('Airton necesita señal para responder.', 4000, 'error'); modalAsesor({ id: d.id }); };
     pintarEquipos(d.equiposDetalle, !activa);
     $('iPlaca').onchange = function () { var f = this.files[0]; this.value = ''; if (f) leerPlaca(T.placaEquipo || null, f, T.placaParte || 'evap'); T.placaEquipo = null; };
     if ($('oReanudar')) $('oReanudar').onclick = function () {
