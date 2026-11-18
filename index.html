@@ -136,6 +136,150 @@
   .panel-notif .nitem:hover { background: var(--primario-claro); }
   .panel-notif .nitem small { display: block; color: var(--gris); margin-top: 2px; }
   .panel-notif .nfila { display: flex; align-items: center; gap: 6px; }
+  /* Correo (17/11/2026) */
+  .correo { display: grid; grid-template-columns: 190px minmax(280px, 380px) minmax(0, 1fr); gap: 12px; align-items: start; }
+  .correo .tarjeta { margin: 0; }
+  .correo-carpetas { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .mail-carp { display: flex; justify-content: space-between; width: 100%; background: none; border: none; text-align: left; padding: 6px 10px; border-radius: 999px; color: inherit; font-weight: 400; cursor: pointer; }
+  .mail-carp:hover { background: var(--primario-claro); }
+  .mail-carp.activo { background: var(--primario-claro); color: var(--primario); font-weight: 700; }
+  .mail-carp b { font-size: 12px; }
+  .mail-etq-cab { display: flex; justify-content: space-between; align-items: center; font-size: 12px; text-transform: uppercase; color: var(--gris); margin: 10px 6px 2px; }
+  .mail-etq { display: flex; align-items: center; }
+  .mail-etq .mail-carp { flex: 1; min-width: 0; }
+  .mail-buscar { display: flex; gap: 6px; margin-bottom: 6px; }
+  .mail-buscar input { flex: 1; min-width: 0; }
+  .mail-buscar button { padding: 6px 10px; }
+  .mail-buscar svg { width: 16px; height: 16px; }
+  .solo-movil { display: none; }
+  .mail-sel { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .mail-acc { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  .mail-acc button, .mail-acc select { padding: 3px 9px; font-size: 13px; min-height: 0; }
+  .mail-item { display: flex; align-items: flex-start; gap: 6px; border-bottom: 1px solid var(--borde); padding: 6px 2px; border-radius: 6px; }
+  .mail-item:hover, .mail-item.activo { background: var(--primario-claro); }
+  .mail-item .mail-chk { margin-top: 10px; }
+  .mail-estrella { background: none; border: none; color: var(--gris-claro); font-size: 18px; padding: 4px 2px; cursor: pointer; line-height: 1; }
+  .mail-estrella.si { color: #e0a800; }
+  .mail-abrir { flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr auto; gap: 0 8px; text-align: left; background: none; border: none; padding: 2px; color: inherit; font-weight: 400; cursor: pointer; }
+  .mail-item.nuevo .mail-de, .mail-item.nuevo .mail-asunto { font-weight: 800; }
+  .mail-abrir:hover, .mail-abrir:focus, .mail-abrir:active, .mail-estrella:hover, .mail-estrella:focus { background: none !important; color: inherit; box-shadow: none; transform: none; }
+  .mail-estrella.si:hover, .mail-estrella.si:focus { color: #e0a800; }
+  .mail-de { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-fecha { color: var(--gris); font-size: 12px; white-space: nowrap; margin-left: auto; }
+  .mail-asunto { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-res { grid-column: 1 / -1; color: var(--gris); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-cli, .mail-etq-chip { display: inline-block; justify-self: start; font-size: 12px; font-weight: 600; background: var(--primario-claro); color: var(--primario); border-radius: 999px; padding: 0 8px; margin-top: 3px; text-decoration: none; }
+  .mail-cli { grid-column: 1 / -1; }
+  .mail-etq-chip { background: #eef1f4; color: var(--texto); margin-right: 4px; }
+  .mail-msg { border-top: 1px solid var(--borde); padding: 10px 0; }
+  .mail-cab { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  .mail-texto { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; font-size: 14px; }
+  .mail-html { width: 100%; border: none; min-height: 80px; margin-top: 6px; background: #fff; }
+  .mail-adj { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 13px; }
+  .mail-adj-i { background: #f4f6f8; border: 1px solid var(--borde); border-radius: 8px; padding: 4px 8px; }
+  .mail-resp-acc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .mail-resp-acc button { padding: 4px 12px; }
+  .mail-filtro { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--borde); padding: 6px 0; font-size: 14px; }
+  .mail-deshacer { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1f2a37; color: #fff; border-radius: 10px; padding: 10px 16px; z-index: 9999; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  .mail-deshacer .link { color: #8ec5ff; font-weight: 700; margin-left: 8px; }
+  .peligro-txt { color: var(--rojo) !important; border-color: var(--rojo) !important; }
+  .mail-volver { display: none; }
+  @media (max-width: 1100px) { .correo { grid-template-columns: 170px minmax(240px, 320px) minmax(0, 1fr); } }
+  @media (max-width: 860px) {
+    .correo { grid-template-columns: 1fr; }
+    .correo-carpetas { display: none; }
+    .solo-movil { display: block; width: auto; max-width: 40%; }
+    .correo.con-hilo .correo-lista { display: none; }
+    .correo:not(.con-hilo) .correo-hilo { display: none; }
+    .mail-volver { display: inline-block; }
+  }
+  /* Calendario (17/11/2026) */
+  .cal-barra { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .cal-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .cal-nav > button.sec { padding: 6px 12px; min-width: 40px; }
+  .cal-titulo { font-size: 17px; margin-left: 6px; }
+  .cal-vistas { margin: 0; border: none; }
+  .cal-leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin: 0 0 12px; align-items: center; }
+  .cal-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .cal-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+  .cal-dia { display: block; }
+  .cal-col { background: var(--blanco, #fff); border: 1px solid var(--borde); border-radius: 10px; padding: 6px; min-height: 160px; }
+  .cal-col.hoy, .cal-celda.hoy { border-color: var(--primario); box-shadow: inset 0 0 0 1px var(--primario); }
+  .cal-dia-cab { display: block; width: 100%; background: none; border: none; text-align: left; padding: 4px 6px; color: inherit; font-weight: 400; cursor: pointer; border-radius: 6px; }
+  .cal-dia-cab:hover { background: var(--primario-claro); }
+  .cal-dia-cab.hoy b { background: var(--primario); color: #fff; border-radius: 999px; padding: 0 7px; }
+  .cal-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .cal-ev { display: block; width: 100%; text-align: left; background: var(--fondo, #f4f6f8); border: 1px solid var(--borde); border-left: 4px solid var(--c); border-radius: 8px; padding: 6px 8px; color: inherit; font-weight: 400; font-size: 13px; cursor: pointer; line-height: 1.35; }
+  .cal-ev:hover { background: var(--primario-claro); }
+  .cal-ev.pend { border-style: dashed; border-left-style: solid; }
+  .cal-ev.hecha { opacity: .6; }
+  .cal-ev .cal-h { color: var(--c); font-weight: 700; }
+  .cal-ev .cal-cli { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .cal-ev small { display: block; color: var(--gris); }
+  .cal-tag { font-size: 11px; font-weight: 600; background: #fff; border: 1px solid var(--borde); border-radius: 999px; padding: 0 6px; }
+  .cal-vacio { margin: 6px; font-size: 13px; }
+  .cal-dia .cal-col { min-height: 0; }
+  .cal-dia .cal-ev { font-size: 15px; padding: 10px 12px; }
+  .cal-mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .cal-mes-cab { font-size: 12px; text-transform: uppercase; color: var(--gris); padding: 2px 6px; }
+  .cal-celda { background: var(--blanco, #fff); border: 1px solid var(--borde); border-radius: 8px; min-height: 104px; padding: 2px 3px 4px; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  .cal-celda.fuera { opacity: .45; }
+  .cal-mini { display: block; width: 100%; text-align: left; border: none; border-left: 3px solid var(--c); background: var(--fondo, #f4f6f8); border-radius: 4px; padding: 1px 5px; font-size: 12px; font-weight: 400; color: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-mas { background: none; border: none; color: var(--primario); font-size: 12px; text-align: left; padding: 0 5px; cursor: pointer; }
+  /* Calendario completo (17/11/2026): cuadrícula por horas, agenda y eventos propios */
+  .cal-herr { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+  .cal-herr input[type=search] { flex: 1 1 220px; max-width: 340px; }
+  .cal-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; margin: 0; cursor: pointer; }
+  .cal-chk input { width: auto; margin: 0; }
+  .cal-grid { display: grid; grid-template-columns: 64px repeat(var(--dias), minmax(0, 1fr)); background: var(--blanco, #fff); border: 1px solid var(--borde); border-radius: 10px; overflow: hidden; }
+  .cal-g-esq { border-bottom: 1px solid var(--borde); }
+  .cal-g-cab { text-align: center; border-bottom: 1px solid var(--borde); border-left: 1px solid var(--borde); border-radius: 0; padding: 6px 2px; }
+  .cal-g-todo { font-size: 11px; color: var(--gris); padding: 4px; text-align: right; }
+  .cal-g-todo-col { border-left: 1px solid var(--borde); border-bottom: 1px solid var(--borde); padding: 3px; display: flex; flex-direction: column; gap: 2px; min-height: 28px; }
+  .cal-g-horas { position: relative; }
+  .cal-g-horas span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 11px; color: var(--gris); white-space: nowrap; }
+  .cal-g-horas span:first-child { transform: none; }
+  .cal-g-col { position: relative; border-left: 1px solid var(--borde); background-image: linear-gradient(to bottom, var(--borde) 1px, transparent 1px); cursor: cell; }
+  .cal-g-col.hoy { background-color: rgba(22, 119, 214, .04); }
+  .cal-bloque { position: absolute; overflow: hidden; padding: 2px 6px; font-size: 12px; line-height: 1.25; border-radius: 6px; z-index: 1; }
+  .cal-bloque b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .cal-bloque small { display: block; color: var(--gris); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-ev.evento { background: var(--c); border-color: var(--c); color: #fff; }
+  .cal-ev.evento small, .cal-ev.evento .cal-h { color: rgba(255, 255, 255, .9); }
+  .cal-ev.evento .cal-tag { background: rgba(255, 255, 255, .25); border-color: transparent; color: #fff; }
+  .cal-mini.evento { background: var(--c); color: #fff; border-left-color: var(--c); }
+  .cal-ahora { position: absolute; left: 0; right: 0; height: 2px; background: #d50000; z-index: 2; pointer-events: none; }
+  .cal-ahora::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #d50000; }
+  [draggable="true"] { cursor: grab; }
+  .arrastrando { opacity: .4; }
+  .soltar { outline: 2px dashed var(--primario); outline-offset: -2px; }
+  .cal-celda { cursor: cell; }
+  .cal-agenda { display: flex; flex-direction: column; gap: 10px; }
+  .cal-ag-dia { background: var(--blanco, #fff); border: 1px solid var(--borde); border-radius: 10px; padding: 6px 8px 8px; }
+  .cal-ag-dia.hoy { border-color: var(--primario); }
+  .cal-elegir { display: flex; flex-direction: column; gap: 10px; }
+  .cal-elegir button { width: 100%; justify-content: center; }
+  .ev-form label { margin-top: 10px; }
+  .ev-fh { display: flex; gap: 6px; }
+  .ev-fh input { min-width: 0; }
+  .ev-fh input[type=date] { flex: 1.4; } .ev-fh input[type=time], .ev-fh input[type=number] { flex: 1; }
+  .ev-colores { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+  .ev-color { width: 24px; height: 24px; min-width: 0; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+  .modal .ev-color { box-shadow: none; outline: none; }
+  .modal .ev-color.activo { outline: 3px solid #1f2933; outline-offset: 2px; }
+  @media (max-width: 720px) {
+    .cal-semana { grid-template-columns: 1fr; }
+    .cal-col { min-height: 0; }
+    .cal-mes { gap: 2px; }
+    .cal-celda { min-height: 64px; }
+    .cal-mini { font-size: 10px; padding: 0 3px; }
+    .cal-titulo { font-size: 15px; width: 100%; margin: 4px 0 0; }
+    .cal-grid { grid-template-columns: 44px repeat(var(--dias), minmax(0, 1fr)); }
+    .cal-grid:not(.un-dia) .cal-bloque small { display: none; }
+    .cal-grid:not(.un-dia) .cal-bloque { padding: 1px 3px; font-size: 10px; }
+    .cal-g-horas span { font-size: 9px; right: 3px; }
+    .cal-herr input[type=search] { max-width: none; }
+  }
   .panel-notif .nfila .nitem { flex: 1; min-width: 0; }
   .panel-notif .nwa { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 8px; background: #25d366; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
   .panel-notif .nwa.hecho { opacity: .5; pointer-events: none; }
@@ -930,6 +1074,8 @@
   }
 
   var ICON = {
+    correo: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2.4V17h16V7.4l-8 5.3zM5.2 7 12 11.5 18.8 7z"/></svg>',
+    calendario: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1h3zm-2 8v10h14V10zm2 2h4v4H7z"/></svg>',
     inicio: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg>',
     ordenes: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 5v2h8V7zm0 4v2h8v-2zm0 4v2h5v-2z"/></svg>',
     revision: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2h6a2 2 0 0 1 2 2h2v18H5V4h2a2 2 0 0 1 2-2zm0 2v2h6V4zm1.5 13.5 6.4-6.4-1.4-1.4-5 5-2.1-2.1-1.4 1.4z"/></svg>',
@@ -1060,6 +1206,8 @@
   var SECCIONES = [
     { id: 'inicio', t: 'Inicio', icono: 'inicio', permiso: 'panel' },
     { id: 'ordenes', t: 'Órdenes de servicio', icono: 'ordenes', permiso: 'panel' },
+    { id: 'calendario', t: 'Calendario', icono: 'calendario', permiso: 'panel' },
+    { id: 'correo', t: 'Correo', icono: 'correo', permiso: 'correo' },
     { id: 'revision', t: 'Revisión', icono: 'revision', permiso: 'revisar', estado: 'CERRADA_TECNICO' },
     { id: 'liquidacion', t: 'Liquidación', icono: 'liquidacion', permiso: 'liquidar', estado: 'REVISADA' },
     { id: 'cobro', t: 'Cobro y facturación', icono: 'cobro', permiso: 'cobrar', estado: 'LIQUIDADA' },
@@ -1388,9 +1536,10 @@
     marcarMenu(AD.seccion);
     window.scrollTo(0, 0);
     var mapa = { inicio: vistaInicio, ordenes: vistaOrdenes, revision: vistaRevision, liquidacion: vistaLiquidacion, cobro: vistaCobro,
-      retornos: vistaRetornos, mercadeo: vistaMercadeo, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
+      retornos: vistaRetornos, calendario: vistaCalendario, correo: vistaCorreo, mercadeo: vistaMercadeo, informes: vistaInformes, clientes: vistaClientes, finanzas: vistaFinanzas };
     if (p[0] === 'orden') return vistaDetalle(decodeURIComponent(p[1]));
     if (p[0] === 'cliente') return vistaCliente(decodeURIComponent(p[1]));
+    if (p[0] === 'correo' && p[1]) return vistaCorreo(decodeURIComponent(p[1]));
     (mapa[p[0]] || vistaInicio)();
   }
 
@@ -3153,6 +3302,687 @@
     }).catch(function (e) { errorEn(cont, e); });
   }
 
+  // ================= CALENDARIO (pedido de Samuel, 17/11/2026: "todo lo que se puede hacer en Google Calendar") =================
+  // Las órdenes salen de la hoja; los demás eventos (reuniones, citas, recordatorios) son del Google Calendar del sistema y
+  // se crean, editan, mueven y eliminan desde aquí. Las órdenes se reprograman arrastrándolas (adminEditar).
+  var COLOR_TIPO = { MANTENIMIENTO: '#1677d6', REPARACION: '#d64545', INSTALACION: '#1e8e4f', VISITA_TECNICA: '#c99700', SUMINISTRO: '#e8833a' };
+  // Colores de evento de Google Calendar ('1' a '11'); '' = el del calendario.
+  var COLOR_EVENTO = { '': '#039be5', 1: '#7986cb', 2: '#33b679', 3: '#8e24aa', 4: '#e67c73', 5: '#f6bf26', 6: '#f4511e', 7: '#039be5', 8: '#616161', 9: '#3f51b5', 10: '#0b8043', 11: '#d50000' };
+  var NOMBRE_COLOR = { '': 'Color del calendario', 1: 'Lavanda', 2: 'Salvia', 3: 'Uva', 4: 'Flamenco', 5: 'Banana', 6: 'Mandarina', 7: 'Pavo real', 8: 'Grafito', 9: 'Arándano', 10: 'Albahaca', 11: 'Tomate' };
+  var DIAS_CORTO = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+  var MESES_CAL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var ALTO_HORA = 48, MIN_ORDEN = 90; // una orden sin hora de fin ocupa 1 h 30 en la cuadrícula
+  var ESTADOS_MOVIBLES = ['PROGRAMADA', 'EN_PAUSA'];
+  function fechaCal(iso) { var p = iso.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function isoCal(d) { return d.toISOString().slice(0, 10); }
+  function sumarDias(iso, n) { var d = fechaCal(iso); d.setUTCDate(d.getUTCDate() + n); return isoCal(d); }
+  function diaSemana(iso) { return (fechaCal(iso).getUTCDay() + 6) % 7; } // lunes = 0
+  function minutos(h) { var m = /^(\d{1,2}):(\d{2})/.exec(h || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+  function horaDe(min) { min = Math.max(0, Math.min(23 * 60 + 59, min)); return ('0' + Math.floor(min / 60)).slice(-2) + ':' + ('0' + (min % 60)).slice(-2); }
+  function horaBonita(h) { var m = minutos(h); if (m == null) return ''; var hh = Math.floor(m / 60), mm = m % 60; return (hh % 12 || 12) + (mm ? ':' + ('0' + mm).slice(-2) : '') + (hh < 12 ? ' a. m.' : ' p. m.'); }
+  function rangoCal(vista, f) {
+    if (vista === 'dia') return { desde: f, hasta: f };
+    if (vista === 'semana') { var l = sumarDias(f, -diaSemana(f)); return { desde: l, hasta: sumarDias(l, 6) }; }
+    if (vista === 'agenda') return { desde: f, hasta: sumarDias(f, 29) };
+    var primero = f.slice(0, 8) + '01', d = fechaCal(primero); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0);
+    var ultimo = isoCal(d);
+    return { desde: sumarDias(primero, -diaSemana(primero)), hasta: sumarDias(ultimo, 6 - diaSemana(ultimo)), primero: primero, ultimo: ultimo };
+  }
+  function fechaTexto(iso, conAnio) { var p = iso.split('-'); return Number(p[2]) + ' de ' + MESES_CAL[Number(p[1]) - 1] + (conAnio ? ' de ' + p[0] : ''); }
+  function tituloCal(vista, f, r) {
+    if (vista === 'dia') return DIAS_CORTO[diaSemana(f)] + ' ' + fechaTexto(f, true);
+    if (vista === 'semana' || vista === 'agenda') return (vista === 'agenda' ? 'Del ' : 'Semana del ') + (r.desde.slice(5, 7) === r.hasta.slice(5, 7) ? Number(r.desde.slice(8)) : fechaTexto(r.desde)) + ' al ' + fechaTexto(r.hasta, true);
+    var p = f.split('-'); return MESES_CAL[Number(p[1]) - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + ' de ' + p[0];
+  }
+  // Orden o evento llevados a una forma común: {clave, tipo: 'orden'|'evento', fecha, fechaFin, ini, fin (minutos o null), color, titulo, ...}
+  function itemsCal(datos, c) {
+    var q = plano(c.buscar || '').trim();
+    var ords = c.ver.ordenes ? (datos.ordenes || []) : [], evs = c.ver.eventos ? (datos.eventos || []) : [];
+    if (c.tecnico) ords = ords.filter(function (o) { return o.tecnico === c.tecnico || (o.apoyo || []).indexOf(c.tecnico) >= 0; });
+    var lista = ords.map(function (o) {
+      var ini = minutos(o.hora);
+      return { clave: 'o:' + o.id, tipo: 'orden', o: o, fecha: o.fecha, fechaFin: o.fecha, ini: ini, fin: ini == null ? null : ini + MIN_ORDEN, color: COLOR_TIPO[o.tipoServicio] || '#6b7785',
+        titulo: o.id + ' · ' + o.cliente, busca: plano([o.id, o.cliente, o.sede, o.direccion, o.tecnicoNombre, o.apoyoNombres, NOMBRES_TIPO[o.tipoServicio]].join(' ')),
+        movible: puede('editar') && ESTADOS_MOVIBLES.indexOf(o.estado) >= 0 };
+    }).concat(evs.map(function (e) {
+      var ini = e.todoElDia ? null : minutos(e.hora), fin = e.todoElDia ? null : (e.fechaFin > e.fecha ? 24 * 60 : minutos(e.horaFin));
+      return { clave: 'e:' + e.id + ':' + e.fecha, tipo: 'evento', e: e, fecha: e.fecha, fechaFin: e.fechaFin || e.fecha, ini: ini, fin: fin, color: COLOR_EVENTO[e.color || ''] || COLOR_EVENTO[''],
+        titulo: e.titulo, busca: plano([e.titulo, e.ubicacion, e.descripcion, (e.invitados || []).join(' ')].join(' ')), movible: true };
+    }));
+    if (q) lista = lista.filter(function (x) { return x.busca.indexOf(q) >= 0; });
+    return lista.sort(function (a, b) { return (a.fecha + ('000' + (a.ini == null ? -1 : a.ini)).slice(-4)).localeCompare(b.fecha + ('000' + (b.ini == null ? -1 : b.ini)).slice(-4)); });
+  }
+  function enDia(x, d) { return x.fecha <= d && x.fechaFin >= d; }
+  function tecnicosOrden(o) { return [o.tecnicoNombre].concat(o.apoyoNombres ? o.apoyoNombres.split(',') : []).filter(Boolean).map(function (n) { return n.trim().split(' ')[0]; }).join(' + '); }
+  function claseItem(x) {
+    if (x.tipo !== 'orden') return 'cal-ev evento';
+    var o = x.o, cerrada = ['CERRADA_TECNICO', 'REVISADA', 'LIQUIDADA', 'POR_FACTURAR', 'COMPLETADA'].indexOf(o.estado) >= 0;
+    return 'cal-ev' + (o.pendDisponibilidad ? ' pend' : '') + (cerrada ? ' hecha' : '') + (o.estado === 'EN_PAUSA' ? ' pausa' : '');
+  }
+  function atributosItem(x) {
+    return ' data-item="' + esc(x.clave) + '"' + (x.movible ? ' draggable="true"' : '') + ' style="--c:' + x.color + '"';
+  }
+  // Tarjeta de lista (agenda, día sin hora): todo el detalle.
+  function tarjetaItem(x, completo) {
+    if (x.tipo === 'evento') {
+      var e = x.e;
+      return '<button class="' + claseItem(x) + '"' + atributosItem(x) + '><span class="cal-h">' + esc(e.todoElDia ? 'Todo el día' : horaBonita(e.hora) + ' – ' + horaBonita(e.horaFin)) + '</span> <b>' + esc(e.titulo) + '</b>' +
+        (e.recurrente ? ' <span class="cal-tag" title="Se repite">↻</span>' : '') +
+        (completo && e.ubicacion ? '<small>' + esc(e.ubicacion) + '</small>' : '') + (completo && (e.invitados || []).length ? '<small>' + esc(e.invitados.length + ' invitado' + (e.invitados.length > 1 ? 's' : '')) + '</small>' : '') + '</button>';
+    }
+    var o = x.o, tec = tecnicosOrden(o), cerrada = / hecha/.test(claseItem(x));
+    return '<button class="' + claseItem(x) + '"' + atributosItem(x) + ' title="' + esc(o.id + ' · ' + o.cliente + ' · ' + (NOMBRES_ESTADO[o.estado] || o.estado)) + '">' +
+      '<span class="cal-h">' + esc(o.hora ? horaBonita(o.hora) : 'Sin hora') + '</span> <b>' + esc(o.id) + '</b>' +
+      (o.estado === 'EN_PAUSA' ? ' <span class="cal-tag">Pausa</span>' : o.pendDisponibilidad ? ' <span class="cal-tag">Por confirmar</span>' : cerrada ? ' <span class="cal-tag">' + esc(NOMBRES_ESTADO[o.estado] || '') + '</span>' : '') +
+      '<span class="cal-cli">' + esc(o.cliente) + '</span>' +
+      (completo ? '<small>' + esc([o.sede, o.direccion, o.ciudad].filter(Boolean).join(' · ')) + '</small>' : '') +
+      '<small>' + esc((NOMBRES_TIPO[o.tipoServicio] || o.tipoServicio || '') + (tec ? ' · ' + tec : ' · Sin técnico')) + '</small></button>';
+  }
+  // Bloque en la cuadrícula de horas, con su posición y su carril (eventos que se cruzan van lado a lado).
+  function bloqueItem(x, desdeMin, carril, carriles) {
+    var ini = x.ini, fin = Math.max(x.fin || ini + 30, ini + 20);
+    var top = (ini - desdeMin) * ALTO_HORA / 60, alto = Math.max(20, (fin - ini) * ALTO_HORA / 60 - 2);
+    var ancho = 100 / carriles;
+    var linea1 = x.tipo === 'orden' ? x.o.id + ' · ' + x.o.cliente : x.e.titulo;
+    var linea2 = x.tipo === 'orden' ? (NOMBRES_TIPO[x.o.tipoServicio] || '') + ' · ' + (tecnicosOrden(x.o) || 'Sin técnico') : horaBonita(x.e.hora) + ' – ' + horaBonita(x.e.horaFin) + (x.e.ubicacion ? ' · ' + x.e.ubicacion : '');
+    return '<button class="' + claseItem(x) + ' cal-bloque"' + atributosItem(x).replace('style="', 'style="top:' + top + 'px;height:' + alto + 'px;left:calc(' + (carril * ancho) + '% + 2px);width:calc(' + ancho + '% - 4px);') + ' title="' + esc(linea1 + ' · ' + linea2) + '">' +
+      '<b>' + esc(linea1) + '</b><small>' + esc(x.tipo === 'orden' ? horaBonita(x.o.hora) + ' · ' + linea2 : linea2) + '</small></button>';
+  }
+  // Carriles por grupo de eventos que se cruzan: los que no se cruzan con nadie usan todo el ancho.
+  function carrilesDia(lista) {
+    var finales = [], grupo = [], maxFin = -1;
+    var cerrar = function () { var n = Math.max(1, finales.length); grupo.forEach(function (g) { g.carriles = n; }); finales = []; grupo = []; };
+    lista.forEach(function (x) {
+      var fin = Math.max(x.fin || x.ini + 30, x.ini + 20), i = 0;
+      if (grupo.length && x.ini >= maxFin) cerrar();
+      while (i < finales.length && finales[i] > x.ini) i++;
+      finales[i] = fin; x.carril = i; grupo.push(x); maxFin = Math.max(maxFin, fin);
+    });
+    if (grupo.length) cerrar();
+  }
+
+  function vistaCalendario() {
+    AD.cal = AD.cal || { vista: window.innerWidth < 720 ? 'dia' : 'semana', fecha: hoyISO(0), tecnico: '', buscar: '', ver: { ordenes: true, eventos: true } };
+    var c = AD.cal;
+    var cont = pagina('Calendario', '<button id="calNuevo">' + ICON.mas + ' Crear</button>');
+    var r = rangoCal(c.vista, c.fecha), hoy = hoyISO(0);
+    cont.innerHTML = '<div class="cal-barra"><div class="cal-nav"><button class="sec" id="calAnt" aria-label="Anterior">‹</button><button class="sec" id="calHoy">Hoy</button><button class="sec" id="calSig" aria-label="Siguiente">›</button>' +
+      '<input type="date" id="calIr" value="' + c.fecha + '" aria-label="Ir a la fecha" style="width:auto"><b class="cal-titulo">' + esc(tituloCal(c.vista, c.fecha, r)) + '</b></div>' +
+      '<div class="cal-nav"><div class="pestanas cal-vistas">' + [['dia', 'Día'], ['semana', 'Semana'], ['mes', 'Mes'], ['agenda', 'Agenda']].map(function (v) { return '<button data-v="' + v[0] + '" class="' + (c.vista === v[0] ? 'activo' : '') + '">' + v[1] + '</button>'; }).join('') + '</div></div></div>' +
+      '<div class="cal-herr"><input id="calBuscar" type="search" placeholder="Buscar en el calendario" value="' + esc(c.buscar) + '" aria-label="Buscar en el calendario">' +
+      '<select id="calTec" style="width:auto" aria-label="Técnico">' + opcionesTecnicos(c.tecnico, 'Todos los técnicos') + '</select>' +
+      '<label class="cal-chk"><input type="checkbox" id="calVerO"' + (c.ver.ordenes ? ' checked' : '') + '> Órdenes</label><label class="cal-chk"><input type="checkbox" id="calVerE"' + (c.ver.eventos ? ' checked' : '') + '> Otros eventos</label>' +
+      '<button class="sec" id="calImprimir">Imprimir</button></div>' +
+      '<div class="cal-leyenda">' + Object.keys(COLOR_TIPO).map(function (k) { return '<span><i style="background:' + COLOR_TIPO[k] + '"></i>' + esc(NOMBRES_TIPO[k] || k) + '</span>'; }).join('') +
+      '<span><i style="background:' + COLOR_EVENTO[''] + ';border-radius:50%"></i>Otros eventos</span><span class="gris">Punteado: por confirmar · tenue: ya cerrada' + (puede('editar') ? ' · arrastre una orden programada para cambiarle la fecha' : '') + '</span></div>' +
+      '<div id="calCuerpo">' + cargando('Cargando…') + '</div>';
+    var mover = function (n) {
+      c.fecha = c.vista === 'dia' ? sumarDias(c.fecha, n) : c.vista === 'semana' ? sumarDias(c.fecha, 7 * n) : c.vista === 'agenda' ? sumarDias(c.fecha, 30 * n) : (function () { var d = fechaCal(c.fecha.slice(0, 8) + '01'); d.setUTCMonth(d.getUTCMonth() + n); return isoCal(d); })();
+      vistaCalendario();
+    };
+    $('calAnt').onclick = function () { mover(-1); };
+    $('calSig').onclick = function () { mover(1); };
+    $('calHoy').onclick = function () { c.fecha = hoyISO(0); vistaCalendario(); };
+    $('calIr').onchange = function () { if (this.value) { c.fecha = this.value; vistaCalendario(); } };
+    $$('.cal-vistas button', cont).forEach(function (b) { b.onclick = function () { c.vista = b.getAttribute('data-v'); vistaCalendario(); }; });
+    $('calTec').onchange = function () { c.tecnico = this.value; pintar(); };
+    $('calVerO').onchange = function () { c.ver.ordenes = this.checked; pintar(); };
+    $('calVerE').onchange = function () { c.ver.eventos = this.checked; pintar(); };
+    var tBuscar; $('calBuscar').oninput = function () { var v = this.value; clearTimeout(tBuscar); tBuscar = setTimeout(function () { c.buscar = v; pintar(); }, 200); };
+    $('calNuevo').onclick = function () { elegirCrear(c.vista === 'dia' ? c.fecha : hoyISO(0), '08:00'); };
+    $('calImprimir').onclick = function () { imprimirCal(DATOS, c, r); };
+    var DATOS = null;
+    var recargar = function () { VISTAS_T0('adminCalendario'); vistaCalendario(); };
+    function pintar() {
+      var cuerpo = $('calCuerpo'); if (!cuerpo || !DATOS) return;
+      var items = itemsCal(DATOS, c), porClave = {};
+      items.forEach(function (x) { porClave[x.clave] = x; });
+      var dias = []; for (var d = r.desde; d <= r.hasta; d = sumarDias(d, 1)) dias.push(d);
+      if (c.vista === 'mes') {
+        cuerpo.innerHTML = '<div class="cal-mes">' + DIAS_CORTO.map(function (n) { return '<div class="cal-mes-cab">' + n + '</div>'; }).join('') + dias.map(function (d) {
+          var evs = items.filter(function (x) { return enDia(x, d); }), fuera = d < r.primero || d > r.ultimo;
+          return '<div class="cal-celda' + (fuera ? ' fuera' : '') + (d === hoy ? ' hoy' : '') + '" data-soltar="' + d + '" data-crear="' + d + '"><button class="cal-dia-cab' + (d === hoy ? ' hoy' : '') + '" data-dia="' + d + '"><b>' + Number(d.slice(8)) + '</b></button>' +
+            evs.slice(0, 3).map(function (x) { return '<button class="cal-mini' + (x.tipo === 'evento' ? ' evento' : '') + '"' + atributosItem(x) + '>' + esc((x.ini != null ? horaBonita(horaDe(x.ini)).replace(/ ([ap])\. m\./, '$1') + ' ' : '') + (x.tipo === 'orden' ? x.o.id : x.e.titulo)) + '</button>'; }).join('') +
+            (evs.length > 3 ? '<button class="cal-mas" data-dia="' + d + '">+' + (evs.length - 3) + ' más</button>' : '') + '</div>';
+        }).join('') + '</div>';
+      } else if (c.vista === 'agenda') {
+        var conAlgo = dias.filter(function (d) { return items.some(function (x) { return enDia(x, d); }); });
+        cuerpo.innerHTML = conAlgo.length ? '<div class="cal-agenda">' + conAlgo.map(function (d) {
+          return '<div class="cal-ag-dia' + (d === hoy ? ' hoy' : '') + '"><button class="cal-dia-cab' + (d === hoy ? ' hoy' : '') + '" data-dia="' + d + '">' + DIAS_CORTO[diaSemana(d)] + ' <b>' + Number(d.slice(8)) + '</b> de ' + MESES_CAL[Number(d.slice(5, 7)) - 1] + '</button><div class="cal-lista">' +
+            items.filter(function (x) { return enDia(x, d); }).map(function (x) { return tarjetaItem(x, true); }).join('') + '</div></div>';
+        }).join('') + '</div>' : '<div class="tarjeta"><p class="gris">' + (c.buscar ? 'Nada coincide con la búsqueda en estos 30 días.' : 'No hay servicios ni eventos en estos 30 días.') + '</p></div>';
+      } else {
+        // Día y semana: fila de "todo el día / sin hora" y cuadrícula de horas.
+        var timed = items.filter(function (x) { return x.ini != null && x.fecha === x.fechaFin; });
+        var desdeMin = 6 * 60, hastaMin = 20 * 60;
+        timed.forEach(function (x) { if (dias.indexOf(x.fecha) >= 0) { desdeMin = Math.min(desdeMin, Math.floor(x.ini / 60) * 60); hastaMin = Math.max(hastaMin, Math.ceil(Math.max(x.fin, x.ini + 30) / 60) * 60); } });
+        hastaMin = Math.min(hastaMin, 24 * 60);
+        var horas = []; for (var h = desdeMin; h < hastaMin; h += 60) horas.push(h);
+        var altoTotal = horas.length * ALTO_HORA;
+        var ahora = (function () { var t = new Date(Date.now() - 5 * 3600e3); return t.getUTCHours() * 60 + t.getUTCMinutes(); })();
+        cuerpo.innerHTML = '<div class="cal-grid ' + (c.vista === 'dia' ? 'un-dia' : '') + '" style="--dias:' + dias.length + '">' +
+          '<div class="cal-g-esq"></div>' + dias.map(function (d) { return '<button class="cal-dia-cab cal-g-cab' + (d === hoy ? ' hoy' : '') + '" data-dia="' + d + '">' + DIAS_CORTO[diaSemana(d)] + ' <b>' + Number(d.slice(8)) + '</b></button>'; }).join('') +
+          '<div class="cal-g-esq cal-g-todo">Todo el día</div>' + dias.map(function (d) {
+            var sinHora = items.filter(function (x) { return enDia(x, d) && (x.ini == null || x.fecha !== x.fechaFin); });
+            return '<div class="cal-g-todo-col" data-soltar="' + d + '">' + sinHora.map(function (x) { return '<button class="cal-mini' + (x.tipo === 'evento' ? ' evento' : '') + '"' + atributosItem(x) + '>' + esc(x.tipo === 'orden' ? x.o.id + ' · ' + x.o.cliente + (x.o.hora ? '' : ' (sin hora)') : x.e.titulo) + '</button>'; }).join('') + '</div>';
+          }).join('') +
+          '<div class="cal-g-horas" style="height:' + altoTotal + 'px">' + horas.map(function (m) { return '<span style="top:' + ((m - desdeMin) * ALTO_HORA / 60) + 'px">' + horaBonita(horaDe(m)) + '</span>'; }).join('') + '</div>' +
+          dias.map(function (d) {
+            var del = timed.filter(function (x) { return x.fecha === d; }); carrilesDia(del);
+            return '<div class="cal-g-col' + (d === hoy ? ' hoy' : '') + '" data-col="' + d + '" data-soltar="' + d + '" style="height:' + altoTotal + 'px;background-size:100% ' + ALTO_HORA + 'px">' +
+              (d === hoy && ahora >= desdeMin && ahora < hastaMin ? '<i class="cal-ahora" style="top:' + ((ahora - desdeMin) * ALTO_HORA / 60) + 'px"></i>' : '') +
+              del.map(function (x) { return bloqueItem(x, desdeMin, x.carril, x.carriles); }).join('') + '</div>';
+          }).join('') + '</div>';
+        cuerpo._desdeMin = desdeMin;
+        var hoyCol = cuerpo.querySelector('.cal-g-col.hoy .cal-ahora');
+        if (hoyCol && c.vista === 'dia') hoyCol.scrollIntoView({ block: 'center' });
+      }
+      // Abrir
+      $$('[data-item]', cuerpo).forEach(function (b) {
+        b.onclick = function (ev) {
+          ev.stopPropagation();
+          var x = porClave[b.getAttribute('data-item')]; if (!x) return;
+          if (x.tipo === 'orden') ir('orden/' + x.o.id); else modalEvento(x.e, null, recargar);
+        };
+      });
+      $$('[data-dia]', cuerpo).forEach(function (b) { b.onclick = function (ev) { ev.stopPropagation(); c.vista = 'dia'; c.fecha = b.getAttribute('data-dia'); vistaCalendario(); }; });
+      // Crear con clic en un espacio vacío
+      $$('[data-col]', cuerpo).forEach(function (col) {
+        col.onclick = function (ev) {
+          if (ev.target !== col) return;
+          var m = cuerpo._desdeMin + Math.floor((ev.offsetY / ALTO_HORA) * 2) * 30;
+          elegirCrear(col.getAttribute('data-col'), horaDe(m));
+        };
+      });
+      $$('[data-crear]', cuerpo).forEach(function (cel) { cel.onclick = function (ev) { if (ev.target === cel) elegirCrear(cel.getAttribute('data-crear'), '08:00'); }; });
+      // Arrastrar para cambiar de fecha u hora
+      $$('[data-item][draggable]', cuerpo).forEach(function (b) {
+        b.ondragstart = function (ev) { ev.dataTransfer.setData('text/plain', b.getAttribute('data-item')); ev.dataTransfer.effectAllowed = 'move'; b.classList.add('arrastrando'); };
+        b.ondragend = function () { b.classList.remove('arrastrando'); };
+      });
+      $$('[data-soltar]', cuerpo).forEach(function (z) {
+        z.ondragover = function (ev) { ev.preventDefault(); z.classList.add('soltar'); };
+        z.ondragleave = function () { z.classList.remove('soltar'); };
+        z.ondrop = function (ev) {
+          ev.preventDefault(); z.classList.remove('soltar');
+          var x = porClave[ev.dataTransfer.getData('text/plain')]; if (!x) return;
+          var dia = z.getAttribute('data-soltar'), hora = null;
+          if (z.hasAttribute('data-col')) {
+            var y = ev.clientY - z.getBoundingClientRect().top;
+            hora = horaDe(cuerpo._desdeMin + Math.round((y / ALTO_HORA) * 4) * 15);
+          }
+          moverItem(x, dia, hora, recargar);
+        };
+      });
+    }
+    leer('adminCalendario', [{ desde: r.desde, hasta: r.hasta }], function (res) {
+      DATOS = Array.isArray(res) ? { ordenes: res, eventos: [] } : (res || { ordenes: [], eventos: [] });
+      pintar();
+    }).catch(function (e) { errorEn($('calCuerpo') || cont, e); });
+  }
+  // Las copias guardadas del calendario quedan viejas después de crear o mover algo.
+  function VISTAS_T0(fn) { Object.keys(VISTAS).forEach(function (k) { if (k.indexOf(fn) >= 0) VISTAS[k].t = 0; }); }
+
+  function elegirCrear(fecha, hora) {
+    if (!puede('crear')) return modalEvento(null, { fecha: fecha, hora: hora }, function () { VISTAS_T0('adminCalendario'); vistaCalendario(); });
+    var m = modal('Crear el ' + DIAS_CORTO[diaSemana(fecha)] + ' ' + fechaTexto(fecha) + ' · ' + horaBonita(hora),
+      '<div class="cal-elegir"><button id="ceOrden">' + ICON.mas + ' Orden de servicio</button><button class="sec" id="ceEvento">' + ICON.mas + ' Evento (reunión, cita, recordatorio)</button></div>', 440);
+    m.querySelector('#ceOrden').onclick = function () { m.remove(); formOrden(null, { fechaProgramada: fecha + ' ' + hora }); };
+    m.querySelector('#ceEvento').onclick = function () { m.remove(); modalEvento(null, { fecha: fecha, hora: hora }, function () { VISTAS_T0('adminCalendario'); vistaCalendario(); }); };
+  }
+
+  function moverItem(x, dia, hora, luego) {
+    if (x.tipo === 'orden') {
+      var o = x.o, h = hora || o.hora || '08:00';
+      if (dia === o.fecha && h === o.hora) return;
+      confirmar('¿Pasar ' + o.id + ' (' + o.cliente + ') al ' + DIAS_CORTO[diaSemana(dia)] + ' ' + fechaTexto(dia) + ' a las ' + horaBonita(h) + '?' + (o.tecnico ? ' El técnico lo ve en su lista.' : ''), 'Mover').then(function (si) {
+        if (!si) return;
+        api('adminEditar', o.id, { fechaProgramada: dia + ' ' + h }).then(function () { aviso(o.id + ' quedó el ' + fechaTexto(dia) + ' a las ' + horaBonita(h) + '.', 3500, 'exito'); luego(); }).catch(function (e) { aviso(e.message, 6000, 'error'); });
+      });
+      return;
+    }
+    var e = x.e, dur = e.todoElDia ? 0 : Math.max(15, (minutos(e.horaFin) || 0) - (minutos(e.hora) || 0) + (e.fechaFin > e.fecha ? 24 * 60 : 0));
+    var dias = Math.round((fechaCal(e.fechaFin) - fechaCal(e.fecha)) / 864e5);
+    var d = datosEvento(e);
+    d.accion = 'editar'; d.alcance = 'este'; d.fechaOriginal = e.fecha; d.fecha = dia; d.fechaFin = sumarDias(dia, dias);
+    if (hora && !e.todoElDia) { d.hora = hora; var fin = minutos(hora) + dur; d.horaFin = horaDe(Math.min(fin, 23 * 60 + 59)); }
+    if (d.fecha === e.fecha && d.hora === e.hora) return;
+    api('adminEvento', d).then(function () { aviso('Evento movido' + (e.recurrente ? ' (solo esta vez)' : '') + '.', 3000, 'exito'); luego(); }).catch(function (er) { aviso(er.message, 6000, 'error'); });
+  }
+  function datosEvento(e) {
+    return { id: e.id, titulo: e.titulo, fecha: e.fecha, hora: e.hora, fechaFin: e.fechaFin, horaFin: e.horaFin, todoElDia: e.todoElDia, ubicacion: e.ubicacion, descripcion: e.descripcion,
+      invitados: (e.invitados || []).join(', '), recordatorio: e.recordatorio || 0, color: e.color || '' };
+  }
+
+  // Ventana de evento: crear (pre = {fecha, hora}) o editar (e).
+  function modalEvento(e, pre, luego) {
+    var nuevo = !e, d = e ? datosEvento(e) : { titulo: '', fecha: pre.fecha, hora: pre.hora || '08:00', fechaFin: pre.fecha, horaFin: horaDe((minutos(pre.hora || '08:00') || 480) + 60), todoElDia: false, ubicacion: '', descripcion: '', invitados: '', recordatorio: 30, color: '' };
+    var avisos = [[0, 'Sin aviso'], [5, '5 minutos antes'], [10, '10 minutos antes'], [30, '30 minutos antes'], [60, '1 hora antes'], [120, '2 horas antes'], [1440, '1 día antes'], [10080, '1 semana antes']];
+    if (d.recordatorio && !avisos.some(function (a) { return a[0] === Number(d.recordatorio); })) avisos.push([Number(d.recordatorio), d.recordatorio + ' minutos antes']);
+    var m = modal(nuevo ? 'Evento nuevo' : 'Evento', '<div class="ev-form">' +
+      '<label for="evTitulo">Título *</label><input id="evTitulo" value="' + esc(d.titulo) + '" placeholder="Reunión, cita, recordatorio…" maxlength="200">' +
+      '<label class="cal-chk"><input type="checkbox" id="evTodo"' + (d.todoElDia ? ' checked' : '') + '> Todo el día</label>' +
+      '<div class="fila dos"><div><label for="evFecha">Desde</label><div class="ev-fh"><input type="date" id="evFecha" value="' + esc(d.fecha) + '"><input type="time" id="evHora" value="' + esc(d.hora || '08:00') + '" aria-label="Hora de inicio" step="300"></div></div>' +
+      '<div><label for="evFechaFin">Hasta</label><div class="ev-fh"><input type="date" id="evFechaFin" value="' + esc(d.fechaFin || d.fecha) + '"><input type="time" id="evHoraFin" value="' + esc(d.horaFin || '') + '" aria-label="Hora de fin" step="300"></div></div></div>' +
+      (nuevo ? '<div class="fila dos"><div><label for="evRep">Repetir</label><select id="evRep"><option value="">No se repite</option><option value="DIARIA">Cada día</option><option value="SEMANAL">Cada semana</option><option value="MENSUAL">Cada mes</option><option value="ANUAL">Cada año</option></select></div>' +
+        '<div id="evRepFin" style="display:none"><label for="evRepHasta">Hasta (o número de veces)</label><div class="ev-fh"><input type="date" id="evRepHasta" aria-label="Repetir hasta"><input type="number" id="evRepVeces" min="2" max="100" value="10" aria-label="Número de veces"></div></div></div>' :
+        (e.recurrente ? '<p class="gris">Este evento se repite. Los cambios de fecha y hora aplican solo a esta vez; título, lugar, descripción, invitados, aviso y color se pueden aplicar a toda la serie.</p><label for="evAlcance">Aplicar a</label><select id="evAlcance"><option value="este">Solo esta vez</option><option value="serie">Toda la serie</option></select>' : '')) +
+      '<label for="evLugar">Lugar</label><input id="evLugar" value="' + esc(d.ubicacion) + '" placeholder="Dirección o sitio">' +
+      '<label for="evInv">Invitados (correos separados por coma)</label><input id="evInv" value="' + esc(d.invitados) + '" list="evContactos" placeholder="nombre@empresa.co" autocomplete="off"><datalist id="evContactos"></datalist>' +
+      '<p class="gris" style="margin:4px 0 0">Google Calendar les envía la invitación desde la cuenta del sistema.</p>' +
+      '<div class="fila dos"><div><label for="evAviso">Aviso</label><select id="evAviso">' + avisos.map(function (a) { return '<option value="' + a[0] + '"' + (Number(d.recordatorio || 0) === a[0] ? ' selected' : '') + '>' + a[1] + '</option>'; }).join('') + '</select></div>' +
+      '<div><label>Color</label><div class="ev-colores">' + Object.keys(COLOR_EVENTO).sort(function (a, b) { return Number(a || 0) - Number(b || 0); }).map(function (k) { return '<button type="button" class="ev-color' + (String(d.color || '') === k ? ' activo' : '') + '" data-color="' + k + '" style="background:' + COLOR_EVENTO[k] + '" title="' + esc(NOMBRE_COLOR[k]) + '" aria-label="' + esc(NOMBRE_COLOR[k]) + '"></button>'; }).join('') + '</div></div></div>' +
+      '<label for="evDesc">Descripción</label><textarea id="evDesc" rows="4">' + esc(d.descripcion) + '</textarea>' +
+      '<div class="acciones der">' + (nuevo ? '' : '<button class="sec peligro-txt" id="evBorrar">Eliminar</button>') + '<button id="evOk">' + (nuevo ? 'Crear evento' : 'Guardar') + '</button></div></div>', 620);
+    var q = function (s) { return m.querySelector(s); };
+    var color = String(d.color || '');
+    var sync = function () { var t = q('#evTodo').checked; q('#evHora').style.display = q('#evHoraFin').style.display = t ? 'none' : ''; };
+    q('#evTodo').onchange = sync; sync();
+    q('#evFecha').onchange = function () { if (!q('#evFechaFin').value || q('#evFechaFin').value < this.value) q('#evFechaFin').value = this.value; };
+    q('#evHora').onchange = function () { var a = minutos(this.value); if (a != null && q('#evFecha').value === q('#evFechaFin').value && (minutos(q('#evHoraFin').value) || 0) <= a) q('#evHoraFin').value = horaDe(a + 60); };
+    if (q('#evRep')) q('#evRep').onchange = function () { q('#evRepFin').style.display = this.value ? '' : 'none'; };
+    $$('.ev-color', m).forEach(function (b) { b.onclick = function () { color = b.getAttribute('data-color'); $$('.ev-color', m).forEach(function (x) { x.classList.toggle('activo', x === b); }); }; });
+    if (puede('correo')) contactosCorreo().then(function (l) { var dl = q('#evContactos'); if (dl) dl.innerHTML = (l || []).slice(0, 400).map(function (x) { return '<option value="' + esc(x.e) + '">' + esc(x.n || '') + '</option>'; }).join(''); });
+    setTimeout(function () { if (nuevo) q('#evTitulo').focus(); }, 50);
+    q('#evOk').onclick = function () {
+      var titulo = q('#evTitulo').value.trim();
+      if (!titulo) return marcarError(q('#evTitulo'), 'Escriba el título.');
+      var todo = q('#evTodo').checked;
+      var x = { accion: nuevo ? 'crear' : 'editar', id: e ? e.id : '', fechaOriginal: e ? e.fecha : '', alcance: q('#evAlcance') ? q('#evAlcance').value : 'este',
+        titulo: titulo, todoElDia: todo, fecha: q('#evFecha').value, hora: q('#evHora').value, fechaFin: q('#evFechaFin').value || q('#evFecha').value, horaFin: q('#evHoraFin').value,
+        ubicacion: q('#evLugar').value.trim(), descripcion: q('#evDesc').value, invitados: q('#evInv').value, recordatorio: Number(q('#evAviso').value), color: color };
+      if (!x.fecha) return marcarError(q('#evFecha'), 'Escoja la fecha.');
+      if (!todo && !x.hora) return marcarError(q('#evHora'), 'Escoja la hora.');
+      if (!todo && (x.fechaFin + ' ' + x.horaFin) <= (x.fecha + ' ' + x.hora)) return marcarError(q('#evHoraFin'), 'El fin debe ser después del inicio.');
+      if (q('#evRep') && q('#evRep').value) { x.repetir = q('#evRep').value; x.repetirHasta = q('#evRepHasta').value; x.repetirVeces = Number(q('#evRepVeces').value) || 10; }
+      api('adminEvento', x).then(function () {
+        m.remove(); aviso(nuevo ? 'Evento creado' + (x.invitados.trim() ? ': se enviaron las invitaciones.' : '.') : 'Evento guardado.', 3500, 'exito'); luego();
+      }).catch(function (er) { aviso(er.message, 6000, 'error'); });
+    };
+    if (q('#evBorrar')) q('#evBorrar').onclick = function () {
+      var serie = q('#evAlcance') && q('#evAlcance').value === 'serie';
+      confirmar(serie ? '¿Eliminar todas las veces de "' + e.titulo + '"?' : '¿Eliminar "' + e.titulo + '"' + (e.recurrente ? ' solo esta vez' : '') + '?', 'Eliminar', true).then(function (si) {
+        if (!si) return;
+        api('adminEvento', { accion: 'eliminar', id: e.id, fechaOriginal: e.fecha, alcance: serie ? 'serie' : 'este' }).then(function () { m.remove(); aviso('Evento eliminado.', 3000, 'exito'); luego(); }).catch(function (er) { aviso(er.message, 6000, 'error'); });
+      });
+    };
+  }
+
+  // Imprimir lo que está a la vista como agenda (un recuadro aparte, sin el menú).
+  function imprimirCal(datos, c, r) {
+    if (!datos) return;
+    var items = itemsCal(datos, c), dias = [];
+    for (var d = r.desde; d <= r.hasta; d = sumarDias(d, 1)) if (items.some(function (x) { return enDia(x, d); })) dias.push(d);
+    var html = '<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Calendario</title><style>body{font:13px Arial,sans-serif;color:#222;margin:24px}h1{font-size:18px}h2{font-size:14px;border-bottom:1px solid #999;margin:16px 0 6px;padding-bottom:3px}' +
+      'div.i{padding:3px 0 3px 8px;border-left:4px solid #999;margin:4px 0}small{color:#555}</style></head><body><h1>Family Air · Calendario · ' + esc(tituloCal(c.vista, c.fecha, r)) + '</h1>' +
+      (dias.length ? dias.map(function (d) {
+        return '<h2>' + DIAS_CORTO[diaSemana(d)] + ' ' + fechaTexto(d, true) + '</h2>' + items.filter(function (x) { return enDia(x, d); }).map(function (x) {
+          if (x.tipo === 'evento') return '<div class="i" style="border-color:' + x.color + '"><b>' + esc(x.e.todoElDia ? 'Todo el día' : horaBonita(x.e.hora) + ' – ' + horaBonita(x.e.horaFin)) + '</b> ' + esc(x.e.titulo) + (x.e.ubicacion ? '<br><small>' + esc(x.e.ubicacion) + '</small>' : '') + '</div>';
+          var o = x.o; return '<div class="i" style="border-color:' + x.color + '"><b>' + esc(o.hora ? horaBonita(o.hora) : 'Sin hora') + '</b> ' + esc(o.id + ' · ' + o.cliente) + '<br><small>' + esc([NOMBRES_TIPO[o.tipoServicio], tecnicosOrden(o) || 'Sin técnico', o.sede, o.direccion, NOMBRES_ESTADO[o.estado]].filter(Boolean).join(' · ')) + '</small></div>';
+        }).join('');
+      }).join('') : '<p>Sin servicios ni eventos.</p>') + '
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').then(function (reg) {
+      reg.addEventListener('updatefound', function () {
+        var w = reg.installing; if (!w) return;
+        w.addEventListener('statechange', function () {
+          if (w.state === 'installed' && navigator.serviceWorker.controller) aviso('Hay una versión nueva de la app. Toque aquí para actualizar.', 20000, '', function () { location.reload(); });
+        });
+      });
+    }).catch(function () {});
+  }
+</script></body></html>';
+    var f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.appendChild(f);
+    f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+    setTimeout(function () { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { aviso('No se pudo imprimir: ' + e.message, 5000, 'error'); } setTimeout(function () { f.remove(); }, 2000); }, 200);
+  }
+
+  // ================= CORREO (pedido de Samuel, 17/11/2026: "todo lo que se puede hacer en Gmail") =================
+  // Bandeja de familyairmercadeo@gmail.com para Erika, Lucas, Adriana y Samuel. Gmail no deja abrirse dentro de otra página:
+  // esto es el correo por la API de Gmail. El HTML de cada correo va en un recuadro aislado que no ejecuta código.
+  function archivoB64(f) {
+    return new Promise(function (ok, fallo) {
+      var r = new FileReader();
+      r.onload = function () { ok({ nombre: f.name, tipo: f.type || 'application/octet-stream', b64: String(r.result).split(',')[1] || '' }); };
+      r.onerror = function () { fallo(new Error('No se pudo leer ' + f.name + '.')); };
+      r.readAsDataURL(f);
+    });
+  }
+  function leerAdjuntos(input) {
+    var fs = Array.prototype.slice.call((input && input.files) || []);
+    var total = fs.reduce(function (a, f) { return a + f.size; }, 0);
+    if (total > 24 * 1048576) return Promise.reject(new Error('Los adjuntos pasan de 24 MB (el límite de Gmail es 25 MB).'));
+    return Promise.all(fs.map(archivoB64));
+  }
+  function chipCliente(cli) { return cli ? '<a class="mail-cli" href="#cliente/' + encodeURIComponent(cli.id) + '">' + esc(cli.nombre) + '</a>' : ''; }
+  function invalidarCorreo() { Object.keys(VISTAS).forEach(function (k) { if (/^adminCorreo/.test(k)) VISTAS[k].t = 0; }); }
+  function pintarCuentaCorreo(n) { var e = document.querySelector('[data-cuenta="correo"]'); if (e) { e.textContent = n || ''; e.style.display = n ? '' : 'none'; } }
+  function contactosCorreo() {
+    if (AD.contactos) return Promise.resolve(AD.contactos);
+    return api('adminCorreoContactos').then(function (l) { AD.contactos = l; return l; }).catch(function () { return []; });
+  }
+  function base64ABlob(b64, tipo) {
+    var bin = atob(b64), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: tipo || 'application/octet-stream' });
+  }
+  /** HTML del correo dentro de un documento aislado: sin código, imágenes externas solo si se piden. */
+  function documentoCorreo(html, imagenes) {
+    var csp = "default-src 'none'; style-src 'unsafe-inline'; font-src data:; img-src data:" + (imagenes ? ' https: http:' : '');
+    return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><base target="_blank">' +
+      '<style>body{font:14px/1.5 Arial,Helvetica,sans-serif;margin:6px;color:#1f2a37;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>' + html + '</body></html>';
+  }
+  function pintarHtmlCorreo(cont, html, imagenes) {
+    var f = document.createElement('iframe');
+    f.className = 'mail-html';
+    f.setAttribute('sandbox', 'allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+    f.setAttribute('title', 'Contenido del correo');
+    f.srcdoc = documentoCorreo(html, imagenes);
+    f.onload = function () { try { f.style.height = Math.min(4000, f.contentDocument.documentElement.scrollHeight + 16) + 'px'; } catch (e) { f.style.height = '600px'; } };
+    cont.innerHTML = ''; cont.appendChild(f);
+  }
+
+  /**
+   * Escribir: nuevo, responder, responder a todos, reenviar o seguir un borrador. pre: {titulo, para, cc, cco, asunto, texto,
+   * hiloId, borradorId, reenviar: {msgId, adjuntos: [{adjId, nombre}]}, programado}. Guarda el borrador solo cada 15 s.
+   */
+  function modalRedactar(pre, listo) {
+    pre = pre || {};
+    var estado = { borradorId: pre.borradorId || '', ultimo: '' };
+    var m = modal(pre.titulo || 'Correo nuevo',
+      '<label>Para *</label><input id="mrPara" list="dlCorreos" value="' + esc(pre.para || '') + '" placeholder="correo@cliente.com (varios separados por coma)">' +
+      '<div id="mrCcBox"' + (pre.cc || pre.cco ? '' : ' style="display:none"') + '><label>CC</label><input id="mrCc" list="dlCorreos" value="' + esc(pre.cc || '') + '"><label>CCO (copia oculta)</label><input id="mrCco" list="dlCorreos" value="' + esc(pre.cco || '') + '"></div>' +
+      (pre.cc || pre.cco ? '' : '<button class="link" id="mrVerCc" type="button">Agregar CC o CCO</button>') +
+      '<datalist id="dlCorreos"></datalist>' +
+      '<label>Asunto</label><input id="mrAsunto" value="' + esc(pre.asunto || '') + '">' +
+      '<label>Mensaje *</label><textarea id="mrTexto" style="min-height:200px">' + esc(pre.texto || '') + '</textarea>' +
+      '<p class="gris" style="margin:4px 0">Sale desde la cuenta de la empresa con su nombre y la firma de Gmail.</p>' +
+      (pre.reenviar && pre.reenviar.adjuntos.length ? '<label>Adjuntos del correo original</label>' + pre.reenviar.adjuntos.map(function (a) { return '<label class="chk"><input type="checkbox" class="mrOrig" value="' + esc(a.adjId) + '" checked> ' + esc(a.nombre) + '</label>'; }).join('') : '') +
+      '<label>Adjuntar archivos</label><input type="file" id="mrAdj" multiple>' +
+      '<div class="fila"><div><label>Adjuntar de una orden</label><input id="mrOrden" placeholder="Ej: ODS-45"></div><div><label>Qué documento</label><select id="mrOrdenCual"><option value="soporte">Soporte / cobro (PDF)</option><option value="cuenta">Cuenta de cobro</option></select></div></div>' +
+      '<label class="chk"><input type="checkbox" id="mrProg"' + (pre.programado ? ' checked' : '') + '> Programar el envío</label>' +
+      '<div id="mrProgBox"' + (pre.programado ? '' : ' style="display:none"') + '><input type="datetime-local" id="mrCuando" value="' + esc(String(pre.programado || '').replace(' ', 'T')) + '"></div>' +
+      '<div class="acciones der">' + (pre.borradorId ? '<button class="sec peligro-txt" id="mrDescartar" type="button">Descartar</button>' : '') +
+      '<button class="sec" id="mrGuardar" type="button">Guardar borrador</button><button id="mrEnviar">Enviar</button></div><p id="mrMsg" class="gris"></p>', 680);
+    contactosCorreo().then(function (l) { var dl = m.querySelector('#dlCorreos'); if (dl) dl.innerHTML = l.map(function (c) { return '<option value="' + esc(c.e) + '">' + esc(c.n) + '</option>'; }).join(''); });
+    if (m.querySelector('#mrVerCc')) m.querySelector('#mrVerCc').onclick = function () { m.querySelector('#mrCcBox').style.display = ''; this.remove(); };
+    m.querySelector('#mrProg').onchange = function () { m.querySelector('#mrProgBox').style.display = this.checked ? '' : 'none'; m.querySelector('#mrEnviar').textContent = this.checked ? 'Programar' : 'Enviar'; };
+    if (pre.programado) m.querySelector('#mrEnviar').textContent = 'Programar';
+    var datos = function () {
+      return { para: m.querySelector('#mrPara').value, cc: m.querySelector('#mrCc').value, cco: m.querySelector('#mrCco').value, asunto: m.querySelector('#mrAsunto').value,
+        texto: m.querySelector('#mrTexto').value, hiloId: pre.hiloId || '', borradorId: estado.borradorId };
+    };
+    var huella = function () { var d = datos(); return [d.para, d.cc, d.cco, d.asunto, d.texto].join('|'); };
+    estado.ultimo = huella();
+    var guardar = function (silencio) {
+      var h = huella();
+      if (h === estado.ultimo || !(datos().texto.trim() || datos().para.trim())) return Promise.resolve();
+      estado.ultimo = h;
+      return api('adminCorreoGuardarBorrador', datos()).then(function (r) {
+        estado.borradorId = r.borradorId;
+        m.querySelector('#mrMsg').textContent = 'Borrador guardado ' + new Date().toTimeString().slice(0, 5) + '.';
+        if (!silencio) aviso('Borrador guardado.', 0, 'exito');
+        invalidarCorreo();
+      }).catch(function (e) { if (!silencio) aviso(e.message, 0, 'error'); });
+    };
+    var reloj = setInterval(function () { if (!document.body.contains(m)) { clearInterval(reloj); return; } guardar(true); }, 15000);
+    m.querySelector('#mrGuardar').onclick = function () { estado.ultimo = ''; guardar(false); };
+    if (m.querySelector('#mrDescartar')) m.querySelector('#mrDescartar').onclick = function () {
+      confirmar('Se descarta este borrador.', 'Descartar', true).then(function (si) {
+        if (!si) return;
+        api('adminCorreoBorradorEliminar', estado.borradorId).then(function () { clearInterval(reloj); m.remove(); invalidarCorreo(); aviso('Borrador descartado.', 0, 'exito'); if (listo) listo(); });
+      });
+    };
+    m.querySelector('#mrEnviar').onclick = function () {
+      var bt = this, d = datos(), prog = m.querySelector('#mrProg').checked;
+      if (!d.para.trim()) { marcarError(m.querySelector('#mrPara'), 'Escriba a quién va el correo.'); return; }
+      if (!d.texto.trim()) { marcarError(m.querySelector('#mrTexto'), 'Escriba el mensaje.'); return; }
+      if (prog && !m.querySelector('#mrCuando').value) { marcarError(m.querySelector('#mrCuando'), 'Escoja la fecha y hora.'); return; }
+      bt.disabled = true; m.querySelector('#mrMsg').textContent = 'Preparando…';
+      leerAdjuntos(m.querySelector('#mrAdj')).then(function (adj) {
+        d.adjuntos = adj;
+        if (pre.reenviar) d.reenviar = { msgId: pre.reenviar.msgId, adjIds: $$('.mrOrig', m).filter(function (x) { return x.checked; }).map(function (x) { return x.value; }) };
+        var orden = m.querySelector('#mrOrden').value.trim().toUpperCase();
+        if (orden) d.orden = { id: orden, cual: m.querySelector('#mrOrdenCual').value };
+        if (prog) d.programar = m.querySelector('#mrCuando').value.replace('T', ' ');
+        clearInterval(reloj);
+        if (prog) return api('adminCorreoEnviar', d).then(function (r) { m.remove(); invalidarCorreo(); aviso('Envío programado para ' + r.programado + '.', 0, 'exito'); if (listo) listo(r); });
+        // Deshacer envío: 5 segundos para arrepentirse antes de mandarlo.
+        m.style.display = 'none';
+        return new Promise(function (ok) {
+          var t = document.createElement('div');
+          t.className = 'mail-deshacer';
+          t.innerHTML = 'Enviando correo… <button class="link" type="button">Deshacer</button>';
+          document.body.appendChild(t);
+          var cancelado = false;
+          t.querySelector('button').onclick = function () { cancelado = true; t.remove(); m.style.display = ''; bt.disabled = false; m.querySelector('#mrMsg').textContent = 'Envío cancelado.'; ok(); };
+          setTimeout(function () {
+            if (cancelado) return;
+            t.innerHTML = 'Enviando…';
+            api('adminCorreoEnviar', d).then(function (r) {
+              t.remove(); m.remove(); invalidarCorreo(); aviso('Correo enviado.', 0, 'exito'); if (listo) listo(r); else ir('correo/' + r.hiloId); ok();
+            }).catch(function (e) { t.remove(); m.style.display = ''; bt.disabled = false; m.querySelector('#mrMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; ok(); });
+          }, 5000);
+        });
+      }).catch(function (e) { m.style.display = ''; bt.disabled = false; m.querySelector('#mrMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; });
+    };
+  }
+
+  /** Acción sobre conversaciones (lista o abierta) y vuelve a pintar. */
+  function accionCorreo(ids, accion, etiquetaId, luego) {
+    return api('adminCorreoAccion', ids, accion, etiquetaId || '').then(function () {
+      invalidarCorreo();
+      var txt = { archivar: 'Archivado.', recibidos: 'Movido a Recibidos.', papelera: 'Enviado a la papelera.', restaurar: 'Restaurado.', spam: 'Marcado como spam.', noSpam: 'Ya no es spam.', etiquetar: 'Etiqueta agregada.', quitarEtiqueta: 'Etiqueta quitada.' }[accion];
+      if (txt) aviso(ids.length > 1 ? ids.length + ' conversaciones: ' + txt.toLowerCase() : txt, 0, 'exito');
+      if (luego) luego();
+    }).catch(function (e) { aviso(e.message, 0, 'error'); });
+  }
+  function pedirFechaHora(titulo, fn) {
+    var man = new Date(Date.now() + 864e5 - 5 * 3600e3).toISOString().slice(0, 10) + 'T08:00';
+    var m = modal(titulo, '<label>¿Hasta cuándo?</label><input type="datetime-local" id="pfCuando" value="' + man + '"><div class="acciones der"><button id="pfOk">Aceptar</button></div>', 420);
+    m.querySelector('#pfOk').onclick = function () { var v = m.querySelector('#pfCuando').value; if (!v) return; m.remove(); fn(v.replace('T', ' ')); };
+  }
+  function opcionesEtiquetas(sel) { return '<option value="">Etiquetar…</option>' + (AD.mailEtq ? AD.mailEtq.etiquetas : []).map(function (e) { return '<option value="' + esc(e.id) + '"' + (e.id === sel ? ' selected' : '') + '>' + esc(e.nombre) + '</option>'; }).join(''); }
+  function barraAcciones(p, carpeta) {
+    var papelera = carpeta === 'TRASH', spam = carpeta === 'SPAM';
+    return '<div class="mail-acc" id="' + p + 'Acc">' +
+      (papelera ? '<button class="sec" data-a="restaurar">Restaurar</button>' : spam ? '<button class="sec" data-a="noSpam">No es spam</button>' :
+        (carpeta === 'INBOX' ? '<button class="sec" data-a="archivar">Archivar</button>' : '<button class="sec" data-a="recibidos">A Recibidos</button>') +
+        '<button class="sec" data-a="papelera">Eliminar</button><button class="sec" data-a="spam">Spam</button>') +
+      '<button class="sec" data-a="leido">Leído</button><button class="sec" data-a="noLeido">No leído</button>' +
+      '<button class="sec" data-a="destacar">★</button><button class="sec" data-a="quitarDestacado">☆</button>' +
+      '<button class="sec" data-a="posponer">Posponer</button>' +
+      '<select data-a="etiquetar" style="width:auto">' + opcionesEtiquetas() + '</select>' +
+      (carpeta && carpeta.indexOf('Label_') === 0 || (AD.mailEtq && AD.mailEtq.etiquetas.some(function (e) { return e.id === carpeta; })) ? '<button class="sec" data-a="quitarEtiqueta">Quitar etiqueta</button>' : '') + '</div>';
+  }
+  function activarAcciones(raiz, p, ids, carpeta, luego) {
+    $$('#' + p + 'Acc [data-a]', raiz).forEach(function (b) {
+      var a = b.getAttribute('data-a');
+      var correr = function (etq) {
+        var lista = ids();
+        if (!lista.length) { aviso('Escoja al menos un correo.', 0, 'error'); return; }
+        if (a === 'posponer') return pedirFechaHora('Posponer', function (cuando) {
+          api('adminCorreoPosponer', lista, cuando).then(function () { invalidarCorreo(); aviso('Pospuesto hasta ' + cuando + '.', 0, 'exito'); luego(); }).catch(function (e) { aviso(e.message, 0, 'error'); });
+        });
+        accionCorreo(lista, a, a === 'quitarEtiqueta' ? carpeta : etq, luego);
+      };
+      if (b.tagName === 'SELECT') b.onchange = function () { if (this.value) correr(this.value); this.value = ''; };
+      else b.onclick = function () { correr(); };
+    });
+  }
+
+  function vistaCorreo(hiloId) {
+    AD.mail = AD.mail || { carpeta: 'INBOX', buscar: '' };
+    var M = AD.mail;
+    var cont = pagina('Correo', '<button id="mlNuevo">' + ICON.mas + ' Redactar</button><button class="sec" id="mlConfig">Configuración</button><a class="link" href="https://mail.google.com/" target="_blank" rel="noopener">Abrir en Gmail</a>');
+    cont.innerHTML = '<div class="correo' + (hiloId ? ' con-hilo' : '') + '">' +
+      '<nav class="correo-carpetas tarjeta" id="mlCarpetas">' + cargando('…') + '</nav>' +
+      '<div class="correo-lista tarjeta"><div class="mail-buscar"><select id="mlCarpetaMovil" class="solo-movil"></select><input id="mlBuscar" placeholder="Buscar (también from:, has:attachment, after:2026/11/01)" value="' + esc(M.buscar) + '"><button class="sec" id="mlAct" title="Actualizar">' + ICON.actualizar + '</button></div>' +
+      '<div class="mail-sel"><label class="chk" style="margin:0"><input type="checkbox" id="mlTodos"> Todos</label>' + barraAcciones('ml', M.carpeta) + '</div>' +
+      '<div id="mlLista">' + cargando('Cargando…') + '</div></div>' +
+      '<div class="correo-hilo tarjeta" id="mlHilo">' + (hiloId ? cargando('Abriendo…') : '<p class="gris">Escoja un correo de la lista.</p>') + '</div></div>';
+    $('mlNuevo').onclick = function () { modalRedactar({}); };
+    $('mlConfig').onclick = modalConfigCorreo;
+    var recargar = function () { invalidarCorreo(); vistaCorreo(hiloId); };
+    $('mlBuscar').onkeydown = function (ev) { if (ev.key === 'Enter') { M.buscar = this.value.trim(); ir('correo'); } };
+    $('mlAct').onclick = recargar;
+    var seleccion = function () { return $$('#mlLista .mail-chk:checked').map(function (x) { return x.value; }); };
+    activarAcciones(cont, 'ml', seleccion, M.carpeta, function () { invalidarCorreo(); vistaCorreo(M.carpeta === 'INBOX' && hiloId ? '' : hiloId); });
+    $('mlTodos').onchange = function () { var v = this.checked; $$('#mlLista .mail-chk').forEach(function (x) { x.checked = v; }); };
+    // Carpetas y etiquetas
+    var pintarCarpetas = function (e) {
+      AD.mailEtq = e;
+      var inbox = e.carpetas.filter(function (c) { return c.id === 'INBOX'; })[0];
+      pintarCuentaCorreo(inbox ? inbox.n : 0);
+      var item = function (id, nombre, n) { return '<button class="mail-carp' + (M.carpeta === id ? ' activo' : '') + '" data-carp="' + esc(id) + '"><span>' + esc(nombre) + '</span>' + (n ? '<b>' + n + '</b>' : '') + '</button>'; };
+      $('mlCarpetas').innerHTML = e.carpetas.map(function (c) { return item(c.id, c.nombre, c.n); }).join('') +
+        '<div class="mail-etq-cab">Etiquetas <button class="link" id="mlEtqNueva" title="Nueva etiqueta">+ Nueva</button></div>' +
+        e.etiquetas.map(function (x) { return '<div class="mail-etq">' + item(x.id, x.nombre, 0) + '<button class="link" data-etqed="' + esc(x.id) + '" title="Renombrar o eliminar">⋯</button></div>'; }).join('');
+      $('mlCarpetaMovil').innerHTML = e.carpetas.concat(e.etiquetas).map(function (c) { return '<option value="' + esc(c.id) + '"' + (M.carpeta === c.id ? ' selected' : '') + '>' + esc(c.nombre) + (c.n ? ' (' + c.n + ')' : '') + '</option>'; }).join('');
+      $('mlCarpetaMovil').onchange = function () { M.carpeta = this.value; ir('correo'); };
+      $$('[data-carp]', $('mlCarpetas')).forEach(function (b) { b.onclick = function () { M.carpeta = b.getAttribute('data-carp'); M.buscar = ''; ir('correo'); }; });
+      $('mlEtqNueva').onclick = function () { pedirTexto('Nueva etiqueta', 'Nombre de la etiqueta', function (t, m) { return api('adminCorreoEtiqueta', { accion: 'crear', nombre: t }).then(function (r) { m.remove(); pintarCarpetas(r); aviso('Etiqueta creada.', 0, 'exito'); }); }); };
+      $$('[data-etqed]', $('mlCarpetas')).forEach(function (b) {
+        b.onclick = function () {
+          var x = e.etiquetas.filter(function (y) { return y.id === b.getAttribute('data-etqed'); })[0];
+          var m = modal('Etiqueta ' + x.nombre, '<label>Nombre</label><input id="etNom" value="' + esc(x.nombre) + '"><div class="acciones der"><button class="sec peligro-txt" id="etDel">Eliminar etiqueta</button><button id="etOk">Renombrar</button></div>', 420);
+          m.querySelector('#etOk').onclick = function () { api('adminCorreoEtiqueta', { accion: 'renombrar', id: x.id, nombre: m.querySelector('#etNom').value }).then(function (r) { m.remove(); pintarCarpetas(r); }).catch(function (er) { aviso(er.message, 0, 'error'); }); };
+          m.querySelector('#etDel').onclick = function () { confirmar('Se elimina la etiqueta "' + x.nombre + '". Los correos no se borran.', 'Eliminar', true).then(function (si) { if (si) api('adminCorreoEtiqueta', { accion: 'eliminar', id: x.id }).then(function (r) { m.remove(); if (M.carpeta === x.id) M.carpeta = 'INBOX'; pintarCarpetas(r); }); }); };
+        };
+      });
+    };
+    // Las carpetas se piden aparte (leer solo pinta la última consulta de la pantalla, que es la lista).
+    var copiaEtq = copiaVista('adminCorreoEtiquetas', []);
+    if (copiaEtq) pintarCarpetas(copiaEtq);
+    api('adminCorreoEtiquetas').then(function (r) { guardarVista('adminCorreoEtiquetas', [], r); if ($('mlCarpetas')) pintarCarpetas(r); }).catch(function (e) { if ($('mlCarpetas') && !copiaEtq) errorEn($('mlCarpetas'), e); });
+    // Lista
+    var pintarLista = function (r, agregar) {
+      var html = (r.hilos || []).map(function (h) {
+        return '<div class="mail-item' + (h.noLeido ? ' nuevo' : '') + (h.id === hiloId ? ' activo' : '') + '">' +
+          '<input type="checkbox" class="mail-chk" value="' + esc(h.id) + '" aria-label="Seleccionar">' +
+          '<button class="mail-estrella' + (h.destacado ? ' si' : '') + '" data-estrella="' + esc(h.id) + '" title="Destacar">' + (h.destacado ? '★' : '☆') + '</button>' +
+          '<button class="mail-abrir" data-hilo="' + esc(h.id) + '"' + (h.borradorId ? ' data-borrador="' + esc(h.borradorId) + '"' : '') + '>' +
+          '<span class="mail-de">' + esc(h.de) + (h.mensajes > 1 ? ' <span class="gris">(' + h.mensajes + ')</span>' : '') + '</span><span class="mail-fecha">' + esc(String(h.fecha).slice(5).replace('-', '/')) + '</span>' +
+          '<span class="mail-asunto">' + esc(h.asunto) + '</span><span class="mail-res">' + esc(h.resumen) + '</span>' + (h.cliente ? '<span class="mail-cli">' + esc(h.cliente.nombre) + '</span>' : '') + '</button></div>';
+      }).join('');
+      var l = $('mlLista'); if (!l) return;
+      if (!agregar) l.innerHTML = html || '<p class="gris">No hay correos aquí.</p>'; else l.insertAdjacentHTML('beforeend', html);
+      var mas = l.querySelector('[data-mas]'); if (mas) mas.remove();
+      if (r.siguiente) {
+        l.insertAdjacentHTML('beforeend', '<button class="sec" data-mas style="width:100%;margin-top:8px">Cargar más</button>');
+        l.querySelector('[data-mas]').onclick = function () { this.disabled = true; api('adminCorreoLista', { carpeta: M.carpeta, buscar: M.buscar, pagina: r.siguiente }).then(function (r2) { pintarLista(r2, true); }); };
+      }
+      $$('[data-hilo]', l).forEach(function (b) {
+        b.onclick = function () {
+          var br = b.getAttribute('data-borrador');
+          if (br && (M.carpeta === 'DRAFT' || M.carpeta === 'PROGRAMADOS')) return api('adminCorreoBorrador', br).then(function (d) { modalRedactar(Object.assign({ titulo: d.programado ? 'Envío programado' : 'Borrador' }, d), function () { vistaCorreo(); }); });
+          ir('correo/' + b.getAttribute('data-hilo'));
+        };
+      });
+      $$('[data-estrella]', l).forEach(function (b) {
+        b.onclick = function () { var si = b.classList.contains('si'); accionCorreo([b.getAttribute('data-estrella')], si ? 'quitarDestacado' : 'destacar', '', function () { b.classList.toggle('si'); b.textContent = si ? '☆' : '★'; }); };
+      });
+    };
+    leer('adminCorreoLista', [{ carpeta: M.carpeta, buscar: M.buscar }], function (r) { pintarLista(r); }).catch(function (e) { errorEn($('mlLista'), e); });
+    if (!hiloId) return;
+    // Conversación abierta
+    api('adminCorreoHilo', hiloId).then(function (h) {
+      var cuenta = String(h.cuenta || '').toLowerCase();
+      var caja = $('mlHilo'); if (!caja) return;
+      var etqNombres = {}; ((AD.mailEtq || {}).etiquetas || []).forEach(function (e) { etqNombres[e.id] = e.nombre; });
+      var chips = h.etiquetas.map(function (l) { return etqNombres[l] ? '<span class="mail-etq-chip">' + esc(etqNombres[l]) + '</span>' : ''; }).join('');
+      caja.innerHTML = '<button class="link mail-volver" id="mlVolver">‹ Volver a la bandeja</button>' +
+        '<div class="mail-hilo-cab"><h2 style="margin:4px 0">' + esc(h.asunto) + '</h2>' + chips + (h.cliente ? ' ' + chipCliente(h.cliente) : '') + '</div>' +
+        barraAcciones('mh', M.carpeta) + '<button class="sec" id="mhImprimir" style="margin:4px 0">Imprimir</button>' +
+        h.mensajes.map(function (x, i) {
+          var externas = /<img[^>]+src=["']?https?:/i.test(x.html || '');
+          return '<div class="mail-msg"><div class="mail-cab"><b>' + esc(x.de) + '</b> <span class="gris">&lt;' + esc(x.correo) + '&gt;</span><span class="mail-fecha">' + esc(x.fecha) + '</span></div>' +
+            '<div class="gris" style="font-size:13px">Para: ' + esc(x.para) + (x.cc ? ' · CC: ' + esc(x.cc) : '') + '</div>' +
+            (x.borradorId ? '<p><span class="marca pend">Borrador</span> <button class="link" data-seguir="' + esc(x.borradorId) + '">Seguir escribiendo</button></p>' : '') +
+            (x.html && externas ? '<button class="link" data-imgs="' + i + '">Mostrar imágenes</button>' : '') +
+            '<div class="mail-cuerpo" data-cuerpo="' + i + '">' + (x.html ? '' : '<div class="mail-texto">' + esc(x.texto) + '</div>') + '</div>' +
+            (x.adjuntos.length ? '<div class="mail-adj">' + x.adjuntos.map(function (a) { var dat = esc(x.id) + '|' + esc(a.adjId) + '|' + esc(a.nombre) + '|' + esc(a.tipo); return '<span class="mail-adj-i">' + esc(a.nombre) + ' <span class="gris">' + Math.max(1, Math.round(a.tamano / 1024)) + ' KB</span> <button class="link" data-ver="' + dat + '">Ver</button> <button class="link" data-bajar="' + dat + '">Descargar</button></span>'; }).join('') + '</div>' : '') +
+            (x.borradorId ? '' : '<div class="mail-resp-acc"><button class="sec" data-resp="' + i + '">Responder</button><button class="sec" data-todos="' + i + '">Responder a todos</button><button class="sec" data-reenv="' + i + '">Reenviar</button></div>') + '</div>';
+        }).join('');
+      h.mensajes.forEach(function (x, i) { if (x.html) pintarHtmlCorreo(caja.querySelector('[data-cuerpo="' + i + '"]'), x.html, false); });
+      $$('[data-imgs]', caja).forEach(function (b) { b.onclick = function () { var i = Number(b.getAttribute('data-imgs')); pintarHtmlCorreo(caja.querySelector('[data-cuerpo="' + i + '"]'), h.mensajes[i].html, true); b.remove(); }; });
+      $('mlVolver').onclick = function () { ir('correo'); };
+      activarAcciones(caja, 'mh', function () { return [h.id]; }, M.carpeta, function () { invalidarCorreo(); vistaCorreo(); });
+      $('mhImprimir').onclick = function () {
+        var w = window.open('', '_blank');
+        if (!w) { aviso('Permita las ventanas emergentes para imprimir.', 0, 'error'); return; }
+        w.document.write('<!doctype html><meta charset="utf-8"><title>' + esc(h.asunto) + '</title><body style="font:14px Arial;margin:24px"><h2>' + esc(h.asunto) + '</h2>' +
+          h.mensajes.map(function (x) { return '<hr><p><b>' + esc(x.de) + '</b> &lt;' + esc(x.correo) + '&gt; · ' + esc(x.fecha) + '<br>Para: ' + esc(x.para) + '</p><div style="white-space:pre-wrap">' + esc(x.texto) + '</div>'; }).join('') + '</body>');
+        w.document.close(); w.focus(); w.print();
+      };
+      var bajar = function (dat, ver) {
+        var p = dat.split('|');
+        api('adminCorreoAdjunto', p[0], p[1]).then(function (b64) {
+          var url = URL.createObjectURL(base64ABlob(b64, p[3]));
+          if (ver) window.open(url, '_blank');
+          else { var a = document.createElement('a'); a.href = url; a.download = p[2]; document.body.appendChild(a); a.click(); a.remove(); }
+          setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        }).catch(function (e) { aviso(e.message, 0, 'error'); });
+      };
+      $$('[data-ver]', caja).forEach(function (b) { b.onclick = function () { bajar(b.getAttribute('data-ver'), true); }; });
+      $$('[data-bajar]', caja).forEach(function (b) { b.onclick = function () { bajar(b.getAttribute('data-bajar'), false); }; });
+      $$('[data-seguir]', caja).forEach(function (b) { b.onclick = function () { api('adminCorreoBorrador', b.getAttribute('data-seguir')).then(function (d) { modalRedactar(Object.assign({ titulo: 'Borrador' }, d), function () { vistaCorreo(h.id); }); }); }; });
+      var citar = function (x) { return '\n\n\nEl ' + x.fecha + ', ' + x.de + ' <' + x.correo + '> escribió:\n' + x.texto.split('\n').map(function (l) { return '> ' + l; }).join('\n'); };
+      var re = function (a) { return /^re:/i.test(a) ? a : 'Re: ' + a; };
+      var otros = function (x) {
+        return [x.correo].concat(String(x.para || '').split(','), String(x.cc || '').split(',')).map(function (s) { return s.trim(); }).filter(function (s) { return s && s.toLowerCase().indexOf(cuenta) < 0; });
+      };
+      $$('[data-resp]', caja).forEach(function (b) { b.onclick = function () { var x = h.mensajes[Number(b.getAttribute('data-resp'))]; var para = x.correo === cuenta ? x.para : x.correo; modalRedactar({ titulo: 'Responder', para: para, asunto: re(h.asunto), texto: citar(x), hiloId: h.id }, function () { vistaCorreo(h.id); }); }; });
+      $$('[data-todos]', caja).forEach(function (b) { b.onclick = function () { var x = h.mensajes[Number(b.getAttribute('data-todos'))]; var t = otros(x); modalRedactar({ titulo: 'Responder a todos', para: t[0] || '', cc: t.slice(1).join(', '), asunto: re(h.asunto), texto: citar(x), hiloId: h.id }, function () { vistaCorreo(h.id); }); }; });
+      $$('[data-reenv]', caja).forEach(function (b) {
+        b.onclick = function () {
+          var x = h.mensajes[Number(b.getAttribute('data-reenv'))];
+          modalRedactar({ titulo: 'Reenviar', asunto: /^(rv|fwd?):/i.test(h.asunto) ? h.asunto : 'RV: ' + h.asunto,
+            texto: '\n\n\n---------- Mensaje reenviado ----------\nDe: ' + x.de + ' <' + x.correo + '>\nFecha: ' + x.fecha + '\nAsunto: ' + h.asunto + '\nPara: ' + x.para + '\n\n' + x.texto,
+            reenviar: { msgId: x.id, adjuntos: x.adjuntos } });
+        };
+      });
+      invalidarCorreo();
+      $$('[data-hilo="' + h.id + '"]').forEach(function (b) { var it = b.closest('.mail-item'); if (it) it.classList.remove('nuevo'); });
+    }).catch(function (e) { errorEn($('mlHilo'), e); });
+  }
+
+  /** Configuración de Gmail desde la app: firma, respuesta automática y filtros. */
+  function modalConfigCorreo() {
+    var m = modal('Configuración del correo', cargando('Cargando…'), 720);
+    var pintar = function (c) {
+      var v = c.vacaciones;
+      m.querySelector('.cuerpo').innerHTML =
+        '<h3 style="margin-top:0">Firma</h3><p class="gris" style="margin-top:0">Va debajo del nombre de quien escribe, en los correos que salen desde la app (y en Gmail).</p>' +
+        '<textarea id="cfFirma" style="min-height:80px">' + esc(String(c.firma || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')) + '</textarea>' +
+        '<div class="acciones der"><button class="sec" id="cfFirmaOk">Guardar firma</button></div>' +
+        '<h3>Respuesta automática</h3><label class="chk"><input type="checkbox" id="cfVac"' + (v.activa ? ' checked' : '') + '> Activada</label>' +
+        '<div class="fila"><div><label>Desde</label><input type="date" id="cfVacDesde" value="' + esc(v.desde) + '"></div><div><label>Hasta</label><input type="date" id="cfVacHasta" value="' + esc(v.hasta) + '"></div></div>' +
+        '<label>Asunto</label><input id="cfVacAsunto" value="' + esc(v.asunto) + '"><label>Mensaje</label><textarea id="cfVacTexto">' + esc(v.texto) + '</textarea>' +
+        '<label class="chk"><input type="checkbox" id="cfVacCont"' + (v.soloContactos ? ' checked' : '') + '> Solo a mis contactos</label>' +
+        '<div class="acciones der"><button class="sec" id="cfVacOk">Guardar respuesta automática</button></div>' +
+        '<h3>Filtros</h3>' + (c.filtros.length ? c.filtros.map(function (f) {
+          return '<div class="mail-filtro"><span>' + esc([f.de && 'De: ' + f.de, f.para && 'Para: ' + f.para, f.asunto && 'Asunto: ' + f.asunto, f.contiene && 'Contiene: ' + f.contiene].filter(Boolean).join(' · ')) + ' → <b>' + esc(f.hace.join(', ')) + '</b></span><button class="link link-peligro" data-delf="' + esc(f.id) + '">Eliminar</button></div>';
+        }).join('') : '<p class="gris">No hay filtros.</p>') +
+        '<details><summary>Crear filtro</summary><div class="fila"><div><label>De</label><input id="cfDe"></div><div><label>Para</label><input id="cfPara"></div></div>' +
+        '<div class="fila"><div><label>Asunto</label><input id="cfAsunto"></div><div><label>Contiene las palabras</label><input id="cfCont"></div></div>' +
+        '<label>Qué hacer</label><label class="chk"><input type="checkbox" id="cfArch"> Archivar (saltar Recibidos)</label><label class="chk"><input type="checkbox" id="cfLeido"> Marcar como leído</label>' +
+        '<label class="chk"><input type="checkbox" id="cfEstrella"> Destacar</label><label class="chk"><input type="checkbox" id="cfImp"> Marcar como importante</label><label class="chk"><input type="checkbox" id="cfDel"> Eliminar</label>' +
+        '<select id="cfEtq">' + opcionesEtiquetas().replace('Etiquetar…', 'Sin etiqueta') + '</select>' +
+        '<div class="acciones der"><button class="sec" id="cfFiltroOk">Crear filtro</button></div></details><p id="cfMsg"></p>';
+      var q = function (s) { return m.querySelector(s); };
+      var ok = function (p, msg) { p.then(function (r) { aviso(msg, 0, 'exito'); pintar(r); }).catch(function (e) { q('#cfMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>'; }); };
+      q('#cfFirmaOk').onclick = function () { ok(api('adminCorreoConfigGuardar', { firma: esc(q('#cfFirma').value).replace(/\n/g, '<br>') }), 'Firma guardada.'); };
+      q('#cfVacOk').onclick = function () { ok(api('adminCorreoConfigGuardar', { vacaciones: { activa: q('#cfVac').checked, desde: q('#cfVacDesde').value, hasta: q('#cfVacHasta').value, asunto: q('#cfVacAsunto').value, texto: q('#cfVacTexto').value, soloContactos: q('#cfVacCont').checked } }), 'Respuesta automática guardada.'); };
+      q('#cfFiltroOk').onclick = function () { ok(api('adminCorreoFiltro', { accion: 'crear', de: q('#cfDe').value, para: q('#cfPara').value, asunto: q('#cfAsunto').value, contiene: q('#cfCont').value, archivar: q('#cfArch').checked, leido: q('#cfLeido').checked, destacar: q('#cfEstrella').checked, importante: q('#cfImp').checked, eliminar: q('#cfDel').checked, etiquetaId: q('#cfEtq').value }), 'Filtro creado.'); };
+      $$('[data-delf]', m).forEach(function (b) { b.onclick = function () { ok(api('adminCorreoFiltro', { accion: 'eliminar', id: b.getAttribute('data-delf') }), 'Filtro eliminado.'); }; });
+    };
+    api('adminCorreoConfig').then(pintar).catch(function (e) { m.querySelector('.cuerpo').innerHTML = '<p class="error">' + esc(e.message) + '</p>'; });
+  }
+
   // ================= MERCADEO =================
   function vistaMercadeo() {
     var cont = pagina('Mercadeo');
@@ -3412,11 +4242,20 @@
             (s.equipos.length ? '<table><thead><tr><th>Equipo</th><th class="ocultar-movil">Seriales</th><th class="ocultar-movil">Frecuencia</th><th>Último servicio</th><th></th></tr></thead><tbody>' + s.equipos.map(function (e, j) {
               return '<tr><td>' + esc(e.texto) + '</td><td class="ocultar-movil">' + [e.serial ? 'Evap. ' + esc(e.serial) : '', e.serialCond ? 'Cond. ' + esc(e.serialCond) : ''].filter(Boolean).join('<br>') + '</td><td class="ocultar-movil">' + (e.frecuencia ? 'Cada ' + esc(e.frecuencia) + ' meses' : '') + '</td><td>' + esc(e.ultimo) + '</td><td>' + (puede('clientes') ? '<span class="eq-acc"><button class="link" data-eeq="' + i + '|' + j + '">Editar</button><button class="link link-peligro" data-deq="' + i + '|' + j + '">Eliminar</button></span>' : '') + '</td></tr>';
             }).join('') + '</tbody></table>' : '<p class="gris">Sin equipos registrados.</p>') + '</div>';
-        }).join('') + '<h2>Historial de servicios</h2><div id="cHist"></div>';
+        }).join('') + (puede('correo') ? '<div class="tarjeta" id="cCorreos"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">Correos con el cliente<button class="sec" id="cEscribir" style="padding:6px 12px">' + ICON.correo + ' Escribir correo</button></h2><div id="cCorreosL">' + cargando('Buscando…') + '</div></div>' : '') + '<h2>Historial de servicios</h2><div id="cHist"></div>';
       tablaSiigo($('cHist'), { filas: c.historial, descargar: 'historial-' + c.id + '.csv', vacio: 'Sin servicios registrados.',
         alClic: function (h) { if (/^(ODS|GA|SC)-/.test(h.numero)) ir('orden/' + h.numero); },
         columnas: [{ t: 'Fecha', k: 'fecha' }, { t: 'N°', k: 'numero' }, { t: 'Sede', k: 'sede', movil: false }, { t: 'Trabajo', k: 'descripcion' }, { t: 'Técnico', k: 'tecnico', movil: false }, { t: 'Valor', k: 'valor', der: true, fmt: function (h) { return h.valor ? pesos(h.valor) : ''; } }] });
       var recargar = function () { vistaCliente(id); };
+      if ($('cCorreosL')) {
+        $('cEscribir').onclick = function () { modalRedactar({ para: String(c.email || '').split(/[,;\s]+/)[0] || '' }); };
+        api('adminCorreoCliente', c.id).then(function (r) {
+          var l = $('cCorreosL'); if (!l) return;
+          l.innerHTML = r.sinCorreo ? '<p class="gris">El cliente no tiene correo registrado: agréguelo con Editar cliente.</p>' : !r.hilos.length ? '<p class="gris">No hay correos con este cliente.</p>' :
+            r.hilos.map(function (h) { return '<button class="mail-item" data-hilo="' + esc(h.id) + '"><span class="mail-de">' + esc(h.de) + '</span><span class="mail-fecha">' + esc(h.fecha) + '</span><span class="mail-asunto">' + esc(h.asunto) + '</span><span class="mail-res">' + esc(h.resumen) + '</span></button>'; }).join('');
+          $$('[data-hilo]', l).forEach(function (b) { b.onclick = function () { ir('correo/' + b.getAttribute('data-hilo')); }; });
+        }).catch(function (e) { var l = $('cCorreosL'); if (l) l.innerHTML = '<p class="error">' + esc(e.message) + '</p>'; });
+      }
       if ($('cCrear')) $('cCrear').onclick = function () { formOrden(null, { idCliente: c.id, idSede: c.sedes[0] && c.sedes[0].id }); };
       if ($('cSede')) $('cSede').onclick = function () { modalSede(c.id, recargar); };
       if ($('cEditar')) $('cEditar').onclick = function () { modalEditarCliente(c, recargar); };
@@ -4514,17 +5353,5 @@
   }
 </script>
 
-
-<script>
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').then(function (reg) {
-      reg.addEventListener('updatefound', function () {
-        var w = reg.installing; if (!w) return;
-        w.addEventListener('statechange', function () {
-          if (w.state === 'installed' && navigator.serviceWorker.controller) aviso('Hay una versión nueva de la app. Toque aquí para actualizar.', 20000, '', function () { location.reload(); });
-        });
-      });
-    }).catch(function () {});
-  }
-</script></body>
+</body>
 </html>
