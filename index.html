@@ -258,6 +258,10 @@
 .as-convfila span{font-size:14px}
 #acBuscar{width:100%;margin-top:4px}
 .as-msg.as-aviso{background:none;box-shadow:none;padding:2px 0;font-size:13px}
+.as-miniaturas{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
+.as-miniaturas img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--borde,#e3e8ee)}
+.as-mini{position:relative;display:inline-block}
+.as-mini button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:#c0392b;color:#fff;font-size:14px;line-height:22px;padding:0;cursor:pointer}
 .as-caso { border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
   .as-caso small { display: block; margin: 2px 0 6px; }
   .as-caso textarea { width: 100%; }
@@ -3933,7 +3937,7 @@
     tocarAudio(ACUSES[Math.floor(Math.random() * ACUSES.length)]);
   }
   function chatAsesor(raiz, orden) {
-    var hist = [], foto = null, conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false, convId = '';
+    var hist = [], fotos = [], conversando = false, oyendo = null, cerrado = false, silencios = 0, sinMicro = false, convId = '';
     raiz.innerHTML = '<div class="as-estado gris" id="asEstado">Cargando…</div>' +
       (orden ? '<p class="gris as-ctx">Airton ya conoce los equipos, el tipo de servicio y la falla de <b>' + esc(orden.id) + '</b> (sin datos personales del cliente).</p>' : '') +
       '<div class="as-chat" id="asChat"><p class="gris as-vacio">Pregúntele a Airton, el ingeniero de Family Air: fallas, códigos de error, presiones, procedimientos y repuestos, y también cómo se hace algo en la app, precios o políticas de la empresa. Puede escribir, dictar con 🎤 o conversar por voz, y adjuntar fotos de la placa, la tarjeta o el código en pantalla.</p></div>' +
@@ -3944,7 +3948,7 @@
         (RECONOCER ? '<button class="sec" id="asDictar" title="Dictar la pregunta">🎤 Dictar</button><button class="sec" id="asConversar" title="Hablar con Airton sin usar las manos">🎧 Conversar</button>' : '') +
         '<button class="sec" id="asNueva" style="display:none" title="Empezar de cero (la anterior queda guardada)">＋ Nueva conversación</button>' +
         '<button class="sec" id="asCaso" style="display:none" title="Guardar lo que se resolvió para que Airton lo sepa siempre">📌 Guardar caso</button>' +
-        '<label class="as-adj">📷 Foto<input type="file" id="asArchivo" accept="image/*" hidden></label><button id="asEnviar">Preguntar</button></div>' +
+        '<label class="as-adj" title="Puede escoger varias fotos (hasta 6)">📷 Fotos<input type="file" id="asArchivo" accept="image/*" multiple hidden></label><button id="asEnviar">Preguntar</button></div>' +
       (RECONOCER ? '' : '<p class="gris" style="margin:6px 0 0;font-size:13px">Este navegador no permite dictar. Para hablar con Airton use Chrome o Safari.</p>') + '</div>';
     var q = function (sel) { return raiz.querySelector(sel); };
     var ultimoEstado = null;
@@ -3981,25 +3985,43 @@
       q('#asChat').innerHTML = '<p class="gris as-vacio">Conversación nueva. Pregúntele a Airton lo que necesite.</p>';
       this.style.display = 'none'; q('#asCaso').style.display = 'none';
     };
+    // Varias fotos para una sola pregunta (pedido de Samuel, 19/11/2026): se suman hasta 6; cada una se puede quitar.
+    var MAX_FOTOS = 6;
+    var pintarFotos = function () {
+      var box = q('#asFoto');
+      if (!fotos.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      box.style.display = '';
+      box.innerHTML = '<div class="as-miniaturas">' + fotos.map(function (u, i) {
+        return '<span class="as-mini"><img src="' + u + '" alt="Foto ' + (i + 1) + '"><button type="button" data-qf="' + i + '" aria-label="Quitar la foto ' + (i + 1) + '">×</button></span>';
+      }).join('') + '</div><span class="gris">' + (fotos.length === 1 ? 'La foto se envía' : 'Las ' + fotos.length + ' fotos se envían') + ' con la próxima pregunta' + (conversando ? ' (dígala en voz alta)' : '') + '.' +
+        (fotos.length < MAX_FOTOS ? ' Puede agregar más con 📷 Fotos.' : '') + '</span><button class="link link-peligro" id="asQuitarFoto">Quitar todas</button>';
+      $$('[data-qf]', box).forEach(function (b) { b.onclick = function () { fotos.splice(+b.getAttribute('data-qf'), 1); pintarFotos(); }; });
+      q('#asQuitarFoto').onclick = function () { fotos = []; pintarFotos(); };
+    };
     q('#asArchivo').onchange = function () {
-      var f = this.files[0]; this.value = ''; if (!f) return;
-      reducirImagen(f, 1568, 0.8).then(function (u) {
-        foto = u; q('#asFoto').style.display = '';
-        q('#asFoto').innerHTML = '<img src="' + u + '" alt="Foto adjunta"><span class="gris">Se envía con la próxima pregunta' + (conversando ? ' (dígala en voz alta)' : '') + '.</span><button class="link link-peligro" id="asQuitarFoto">Quitar</button>';
-        q('#asQuitarFoto').onclick = function () { foto = null; q('#asFoto').style.display = 'none'; };
-      }).catch(function () { aviso('No se pudo leer la foto.', 4000, 'error'); });
+      var lista = Array.prototype.slice.call(this.files || []); this.value = '';
+      if (!lista.length) return;
+      var cupo = MAX_FOTOS - fotos.length;
+      if (cupo <= 0) return aviso('Máximo ' + MAX_FOTOS + ' fotos por pregunta.', 4000, 'error');
+      if (lista.length > cupo) aviso('Se agregan ' + cupo + ': máximo ' + MAX_FOTOS + ' fotos por pregunta.', 4000, 'error');
+      Promise.all(lista.slice(0, cupo).map(function (f) { return reducirImagen(f, 1568, 0.8).catch(function () { return null; }); })).then(function (us) {
+        var malas = us.filter(function (u) { return !u; }).length;
+        fotos = fotos.concat(us.filter(Boolean)).slice(0, MAX_FOTOS);
+        if (malas) aviso('No se pudo leer ' + (malas === 1 ? 'una foto' : malas + ' fotos') + '.', 4000, 'error');
+        pintarFotos();
+      });
     };
     // Envía una pregunta; con voz, la respuesta es corta y se lee en voz alta.
     var enviar = function (pregunta, voz, luego) {
-      if (!pregunta && !foto) { if (!voz) marcarError(q('#asPregunta'), 'Escriba la pregunta.'); return; }
-      var conFoto = foto;
-      agregar('yo', (conFoto ? '<img src="' + conFoto + '" alt="Foto enviada">' : '') + (voz ? '<span class="as-voz">🎤</span>' : '') + textoAsesor(pregunta || '(foto)'));
+      if (!pregunta && !fotos.length) { if (!voz) marcarError(q('#asPregunta'), 'Escriba la pregunta.'); return; }
+      var conFotos = fotos.slice();
+      agregar('yo', (conFotos.length ? '<div class="as-miniaturas">' + conFotos.map(function (u, i) { return '<img src="' + u + '" alt="Foto ' + (i + 1) + ' enviada">'; }).join('') + '</div>' : '') + (voz ? '<span class="as-voz">🎤</span>' : '') + textoAsesor(pregunta || (conFotos.length > 1 ? '(' + conFotos.length + ' fotos)' : '(foto)')));
       var espera = agregar('asesor', '<span class="gris">Airton está pensando…</span>', 'esperando');
-      q('#asPregunta').value = ''; foto = null; q('#asFoto').style.display = 'none';
+      q('#asPregunta').value = ''; fotos = []; pintarFotos();
       q('#asEnviar').disabled = true;
       if (conversando) q('#asConvTxt').textContent = 'Airton está pensando…';
       if (voz) decirAcuse(); // suena de una mientras llega la respuesta
-      api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), foto: conFoto, voz: !!voz, conversacionId: convId }).then(function (r) {
+      api('adminAsesor', { pregunta: pregunta, idOrden: orden ? orden.id : '', historial: hist.slice(-10), fotos: conFotos, voz: !!voz, conversacionId: convId }).then(function (r) {
         if (cerrado) return;
         espera.classList.remove('esperando');
         pintarRespuesta(espera, r.respuesta, r.costo);
@@ -4065,7 +4087,7 @@
         if (!conversando || cerrado) return;
         if (sinMicro) { sinMicro = false; return terminarConversacion(); }
         // Silencio: vuelve a escuchar; a la tercera vez seguida, termina para no dejar el micrófono abierto.
-        if (!texto && !foto) { if (++silencios >= 3) { hablar('No le escuché. Toque Conversar cuando me necesite.'); return terminarConversacion(); } return turno(); }
+        if (!texto && !fotos.length) { if (++silencios >= 3) { hablar('No le escuché. Toque Conversar cuando me necesite.'); return terminarConversacion(); } return turno(); }
         silencios = 0;
         if (/^(gracias|listo|chao|adi[oó]s)[\s,.!]*(airton)?[.!]?$/i.test(texto) || /\b(terminar|fin de la) conversaci[oó]n\b/i.test(texto)) { q('#asPregunta').value = ''; hablar('Con gusto. Aquí estoy cuando me necesite.'); return terminarConversacion(); }
         enviar(texto, true, turno);
