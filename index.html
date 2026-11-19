@@ -3840,7 +3840,9 @@
   }
   function callar() {
     TURNO_VOZ++; // lo que estaba por sonar de una respuesta anterior ya no suena
-    if (FUENTE_AUDIO) { try { FUENTE_AUDIO.onended = null; FUENTE_AUDIO.stop(); } catch (e) {} FUENTE_AUDIO = null; }
+    if (FUENTE_AUDIO) { try { FUENTE_AUDIO.onended = null; } catch (e) {} FUENTE_AUDIO = null; }
+    (typeof FUENTES_AUDIO !== 'undefined' ? FUENTES_AUDIO : []).forEach(function (f) { try { f.onended = null; f.stop(); } catch (e) {} });
+    FUENTES_AUDIO = [];
     if (window.speechSynthesis) speechSynthesis.cancel();
   }
   function hablarNavegador(texto, alTerminar) {
@@ -3851,19 +3853,42 @@
     speechSynthesis.speak(u);
   }
   // Reproduce un MP3 en base64 por el AudioContext (más fuerte, con compresor). bien() al terminar, mal() si no se pudo decodificar.
-  function tocarAudio(b64, bien, mal) {
-    var bin = atob(b64), buf = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-    CTX_AUDIO.decodeAudioData(buf.buffer, function (audio) {
-      if (CTX_AUDIO.state === 'suspended') CTX_AUDIO.resume();
-      var src = CTX_AUDIO.createBufferSource(), g = CTX_AUDIO.createGain(), comp = CTX_AUDIO.createDynamicsCompressor();
-      src.buffer = audio; g.gain.value = VOLUMEN_AIRTON; // más fuerte; el compresor evita que se distorsione
-      src.connect(g); g.connect(comp); comp.connect(CTX_AUDIO.destination);
-      src.onended = function () { if (FUENTE_AUDIO === src) FUENTE_AUDIO = null; if (bien) bien(); };
-      FUENTE_AUDIO = src; src.start(0);
-    }, function () { if (mal) mal(); });
+  function decodificar(b64) {
+    return new Promise(function (ok, fallo) {
+      var bin = atob(b64), buf = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      CTX_AUDIO.decodeAudioData(buf.buffer, ok, function () { fallo(new Error('audio')); });
+    });
   }
-  // Primera frase (o dos, hasta ~160 letras) y el resto: la primera suena mientras llega el audio del resto (pedido de Samuel, 18/11/2026).
+  // Inicio y fin del sonido sin el silencio que Google deja en los bordes (pedido de Samuel, 19/11/2026: pausa larga en el punto seguido).
+  function bordesSonido(audio) {
+    var d = audio.getChannelData(0), n = d.length, umbral = 0.012, a = 0, b = n - 1;
+    while (a < n && Math.abs(d[a]) < umbral) a++;
+    while (b > a && Math.abs(d[b]) < umbral) b--;
+    if (a >= b) return { ini: 0, dur: audio.duration };
+    var ini = Math.max(0, a / audio.sampleRate - 0.04), fin = Math.min(audio.duration, b / audio.sampleRate + 0.06);
+    return { ini: ini, dur: fin - ini };
+  }
+  var FUENTES_AUDIO = [];
+  /** Reproduce uno o varios MP3 (base64) seguidos, sin silencio de por medio: cada parte queda programada justo después de la anterior. */
+  function tocarAudio(lista, bien, mal) {
+    lista = (Array.isArray(lista) ? lista : [lista]).filter(Boolean);
+    Promise.all(lista.map(decodificar)).then(function (audios) {
+      if (CTX_AUDIO.state === 'suspended') CTX_AUDIO.resume();
+      var t = CTX_AUDIO.currentTime + 0.05, ultimo = null;
+      audios.forEach(function (audio, k) {
+        var src = CTX_AUDIO.createBufferSource(), g = CTX_AUDIO.createGain(), comp = CTX_AUDIO.createDynamicsCompressor(), bd = bordesSonido(audio);
+        src.buffer = audio; g.gain.value = VOLUMEN_AIRTON; // más fuerte; el compresor evita que se distorsione
+        src.connect(g); g.connect(comp); comp.connect(CTX_AUDIO.destination);
+        src.start(t, bd.ini, bd.dur);
+        t += bd.dur + (k < audios.length - 1 ? 0.18 : 0); // pausa natural de punto seguido
+        FUENTES_AUDIO.push(src); ultimo = src;
+      });
+      if (ultimo) ultimo.onended = function () { FUENTES_AUDIO = []; if (bien) bien(); };
+      FUENTE_AUDIO = ultimo;
+    }).catch(function () { if (mal) mal(); });
+  }
+  // Primera frase (o dos, hasta ~160 letras) y el resto (pedido de Samuel, 18/11/2026).
   function partirHablar(t) {
     t = textoParaHablar(t);
     var m = /^(.{20,160}?[.!?])\s+(.+)$/.exec(t);
@@ -3871,34 +3896,27 @@
   }
   var TURNO_VOZ = 0;
   /**
-   * Lee el texto con la voz natural. Con vozInicio (audio de la primera frase que ya trajo la respuesta) empieza a sonar de una;
-   * si no, pide primera frase y resto al mismo tiempo. Si algo falla, la voz del celular.
+   * Lee el texto con la voz natural. Con vozInicio (la respuesta ya trae el audio de la primera frase y del resto) suena de una y
+   * sin pausa entre las partes; si no, pide las dos partes juntas (el servidor las genera en paralelo). Si algo falla, la voz del celular.
    */
   function hablar(texto, alTerminar, vozInicio) {
     callar();
     var turno = ++TURNO_VOZ, listo = false, fin = function () { if (listo) return; listo = true; if (alTerminar) alTerminar(); };
     if (!CTX_AUDIO || !VOZ_GOOGLE_OK) return hablarNavegador(texto, fin);
-    var partes = vozInicio ? [null, vozInicio.resto || ''] : partirHablar(texto);
-    var pedir = function (t) {
-      return t ? llamar('adminAsesorVoz', [t]).then(function (r) { return r.audio; }) : Promise.resolve(null);
-    };
-    var primero = vozInicio ? Promise.resolve(vozInicio.audio) : pedir(partes[0]), resto = pedir(partes[1]);
     var aNavegador = function (t) { if (turno === TURNO_VOZ) hablarNavegador(t, fin); };
-    resto.catch(function () {}); // se maneja abajo
-    primero.then(function (a1) {
-      if (turno !== TURNO_VOZ) return;
-      tocarAudio(a1, function () {
+    var tocar = function (lista, siFalla) { if (turno === TURNO_VOZ) tocarAudio(lista, fin, function () { aNavegador(siFalla); }); };
+    var error = function (e, t) { if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false; aNavegador(t); };
+    if (vozInicio && (vozInicio.audioResto || !vozInicio.resto)) return tocar([vozInicio.audio, vozInicio.audioResto], texto);
+    if (vozInicio) { // respuesta con solo la primera frase en audio: suena ya y el resto se pide aparte
+      var resto = llamar('adminAsesorVoz', [vozInicio.resto]);
+      resto.catch(function () {});
+      return tocarAudio(vozInicio.audio, function () {
         if (turno !== TURNO_VOZ) return;
-        if (!partes[1]) return fin();
-        resto.then(function (a2) {
-          if (turno !== TURNO_VOZ) return;
-          tocarAudio(a2, fin, function () { aNavegador(partes[1]); });
-        }).catch(function (e) { if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false; aNavegador(partes[1]); });
+        resto.then(function (r) { tocar(r.audio, vozInicio.resto); }).catch(function (e) { error(e, vozInicio.resto); });
       }, function () { aNavegador(texto); });
-    }).catch(function (e) {
-      if (/VOZ_NO_DISPONIBLE/.test(e.message)) VOZ_GOOGLE_OK = false;
-      aNavegador(texto);
-    });
+    }
+    var partes = partirHablar(texto).filter(Boolean);
+    llamar('adminAsesorVoz', [partes]).then(function (r) { tocar(r.audios, texto); }).catch(function (e) { error(e, texto); });
   }
   // Frases cortas que Airton dice apenas la persona termina de hablar, mientras piensa (se traen una vez al empezar a conversar).
   var ACUSES = [], ACUSES_PEDIDOS = false;
