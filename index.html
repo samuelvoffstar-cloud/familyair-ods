@@ -1970,8 +1970,16 @@
         var v = modal(({ PLACA: 'Placa', FIRMA: 'Firma de quien recibe' })[tipo] || 'Foto',
           '<img src="' + (AD.fotos[ref] || img.src) + '" alt="' + esc(img.alt) + '" style="width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#1f2a37">' +
           '<div class="acciones"><a class="sec boton" href="' + a.href + '" target="_blank" rel="noopener" style="padding:8px 14px;border:1px solid var(--primario);border-radius:8px">Abrir en Drive</a>' +
-          (bt ? '<button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button>' : '') + '</div>', 820);
+          (bt ? '<button class="sec" id="vfQuitar" style="border-color:var(--rojo);color:var(--rojo)">Eliminar esta foto</button>' : '') +
+          // Firma equivocada (caso real ODS-53, 20/11/2026: una foto quedó como firma): quien edita la puede quitar.
+          (tipo === 'FIRMA' && puede('editar') && d.estado !== 'ANULADA' ? '<button class="sec" id="vfQuitarFirma" style="border-color:var(--rojo);color:var(--rojo)">Quitar esta imagen</button>' : '') + '</div>', 820);
         if (v.querySelector('#vfQuitar')) v.querySelector('#vfQuitar').onclick = function () { v.remove(); bt.click(); };
+        if (v.querySelector('#vfQuitarFirma')) v.querySelector('#vfQuitarFirma').onclick = function () {
+          var b = this;
+          confirmar('Se quita esta imagen de la sección de firma de la orden ' + d.id + ' y la orden queda sin firma. El archivo queda 30 días en la papelera de Drive y el soporte se arma de nuevo. Si hace falta la firma del cliente, use Devolver al técnico para que la tome de nuevo.', 'Quitar', true).then(function (si) {
+            if (si) ejecutar(b, api('adminBorrarFirma', d.id), 'Imagen quitada de la firma.').then(function () { v.remove(); });
+          });
+        };
       };
     });
     $$('[data-qfoto]', cont).forEach(function (bt) {
